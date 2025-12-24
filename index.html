@@ -1,47 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mzansi Videos - South African Short Video App</title>
-    
-    <meta name="description" content="The ultimate South African short video platform. Create, share, and discover local content in English, Zulu, Xhosa, Afrikaans, and Sotho." />
-    <meta name="author" content="Mzansi Videos" />
-
-    <meta property="og:title" content="Mzansi Videos - South African Short Video App" />
-    <meta property="og:description" content="The ultimate South African short video platform. Create, share, and discover local content in English, Zulu, Xhosa, Afrikaans, and Sotho." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://mzansivideos.co.za" />
-    <meta property="og:image" content="https://img-wrapper.vercel.app/image?url=https://placehold.co/1200x630/FF6B35/FFFFFF?text=Mzansi+Videos" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />	
-    <meta property="og:image:alt" content="Mzansi Videos - South African Short Video Platform" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Mzansi Videos - South African Short Video App" />
-    <meta name="twitter:description" content="The ultimate South African short video platform. Create, share, and discover local content in English, Zulu, Xhosa, Afrikaans, and Sotho." />
-    <meta name="twitter:site" content="@mzansivideos" />
-    <meta name="twitter:image" content="https://img-wrapper.vercel.app/image?url=https://placehold.co/1200x630/FF6B35/FFFFFF?text=Mzansi+Videos" />
-
-    <link rel="canonical" href="https://mzansivideos.co.za" />
-
-     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Mzansi Videos",
-      "url": "https://mzansivideos.co.za",
-      "description": "The ultimate South African short video platform. Create, share, and discover local content in English, Zulu, Xhosa, Afrikaans, and Sotho.",
-      "publisher": {
-        "@type": "Organization",
-        "name": "Mzansi Videos"
-      }
-    }
-    </script>
-
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Video Social</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #ec489915 0%, #ec489905 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+        .header h1 { font-size: 3rem; margin-bottom: 10px; }
+        .status {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: #10b981;
+            color: white;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .content { padding: 40px; }
+        .card {
+            background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            border-left: 5px solid #ec4899;
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .card h3 { color: #ec4899; margin-bottom: 15px; font-size: 1.5rem; }
+        .btn {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .btn:hover { transform: scale(1.05); }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Short Video Social</h1>
+            <p>Create, Share, Go Viral</p>
+            <span class="status">🟢 Live & Ready</span>
+        </div>
+        <div class="content">
+            <div class="card">
+                <h3>Your Creative Platform</h3>
+                <p>Share short videos, connect with creators, and discover trending content from around the world.</p>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h3>🎥 Create Videos</h3>
+                    <p>Record and edit amazing content</p>
+                </div>
+                <div class="card">
+                    <h3>🔥 Trending</h3>
+                    <p>Discover what's hot right now</p>
+                </div>
+                <div class="card">
+                    <h3>👥 Connect</h3>
+                    <p>Follow your favorite creators</p>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 40px;">
+                <button class="btn" onclick="alert('Start creating!')">Upload Video</button>
+                <button class="btn" onclick="alert('Explore trending content!')">Explore</button>
+            </div>
+        </div>
+    </div>
+</body>
 </html>
