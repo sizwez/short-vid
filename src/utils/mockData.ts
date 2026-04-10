@@ -12,7 +12,7 @@ export const generateVideoData = (count: number) => {
     'zanele_fashion', 'mandla_food', 'ntombi_lifestyle', 'bongani_sports', 'precious_art'
   ];
 
-  return Array.from({ length: count }, (_, index) => ({
+  return Array.from({ length: count }, () => ({
     id: faker.string.uuid(),
     user: {
       id: faker.string.uuid(),

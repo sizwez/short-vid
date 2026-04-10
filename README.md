@@ -1,47 +1,63 @@
-# Project Setup
-    
-    To run this project, follow these steps:
-    
-    1. Extract the zip file.
-    2. Run `npm install` to install dependencies.
-    3. Run `npm run dev` to start the development server.
-    
-    This project was generated through Alpha. For more information, visit [dualite.dev](https://dualite.dev).
-    
-    ## Environment & running tests
-    
-    This project uses a local `.env` file (gitignored) to store API keys and secrets. Do NOT commit your real keys. A safe example is provided in `.env.example`.
-    
-    1. Copy the example and fill values locally:
-    ```powershell
-    Copy-Item .env.example .env
-    notepad .env
-    ```
-    
-    2. Install dependencies (if not already):
-    ```powershell
-    npm install
-    ```
-    
-    3. Run the connectivity test script (it will use your `.env`):
-    ```powershell
-    node "New folder/test.cjs"
-    ```
-    
-    If a test prints `SKIPPED` for a service, add the corresponding key to your `.env` and rerun. If a test returns HTTP 4xx/5xx, check the provider docs and key permissions.
-    
-    ## Paystack testing & webhook
-    
-    To initialize and verify a test transaction locally, use the included script:
-    ```powershell
-    node "New folder/paystack_test.cjs"
-    ```
-    The script will print a reference and verification status. To complete a payment flow, open the returned authorization URL in a browser and complete a test card flow.
-    
-    To accept Paystack webhooks in development, run the example listener and configure the webhook URL in your Paystack dashboard:
-    ```powershell
-    npm install express
-    node "New folder/paystack_webhook.js"
-    ```
-    
-    The webhook verifies `x-paystack-signature` using your `PAYSTACK_SECRET` before processing events. Implement your business logic in `New folder/paystack_webhook.js`.
+# 🇿🇦 Mzansi Videos - The Vibe of South Africa
+
+Mzansi Videos is a premium, short-video social platform designed to celebrate and share South African culture. From Amapiano vibes to braai day highlights, Mzansi Videos brings the community together.
+
+## 🌟 Key Features
+
+- **🔥 Dynamic Video Feed**: High-performance vertical scrolling with real-time engagement tracking.
+- **💬 Direct Messaging**: Real-time private chat with other users and creators.
+- **🔍 Global Discovery**: Search for trending hashtags like `#amapiano` or find your favorite creators.
+- **🏆 Challenges**: Participate in community challenges and compete for prizes.
+- **💎 Creator Dashboard**: Professional analytics for creators to track views, likes, and earnings.
+- **💳 Secure Monetization**: Paystack integration for seamless subscriptions and creator support.
+- **🛡️ Safety First**: Built-in reporting system and robust account privacy settings.
+- **📱 PWA Ready**: Install as an app on your iOS or Android device with offline support.
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React 19, Vite, Tailwind CSS, Framer Motion
+- **Backend/DB**: Supabase (Auth, Postgres, Realtime, Storage)
+- **Payments**: Paystack
+- **PWA**: vite-plugin-pwa
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 20+
+- Supabase Account
+- Paystack Account (for payments)
+
+### Installation
+
+1. **Clone & Install**:
+   ```bash
+   npm install
+   ```
+
+2. **Environment Setup**:
+   Copy `.env.example` to `.env` and fill in your Supabase and Paystack credentials.
+   ```bash
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_PAYSTACK_PUBLIC_KEY=your_paystack_public_key
+   ```
+
+3. **Database Setup**:
+   Run the SQL scripts in `supabase_migrations.sql` in your Supabase SQL Editor to set up tables, RLS policies, and triggers.
+
+4. **Run Locally**:
+   ```bash
+   npm run dev
+   ```
+
+## 📱 Mobile Installation (PWA)
+
+After deploying to a secure (HTTPS) environment, users can:
+- **iOS**: Tap "Share" and select "Add to Home Screen".
+- **Android**: Tap the three dots and select "Install App".
+
+## 🛡️ License
+This project is private and intended for the Mzansi Videos community.
+
+---
+Built with ❤️ for South Africa.

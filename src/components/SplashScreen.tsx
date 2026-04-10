@@ -2,14 +2,21 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Play, Heart } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const SplashScreen: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigate('/onboarding');
-    }, 3000);
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session;
+    };
+
+    const timer = setTimeout(async () => {
+      const session = await checkAuth();
+      navigate(session ? '/app' : '/onboarding');
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [navigate]);
