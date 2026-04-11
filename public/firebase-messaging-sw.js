@@ -2,10 +2,10 @@ importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "demo-key",
-  authDomain: "mzansi-videos.firebaseapp.com",
-  projectId: "mzansi-videos",
-  storageBucket: "mzansi-videos.appspot.com",
+  apiKey: "AIzaSyDrVp_P44GAYbFXOXDwina6BzHmwF729_0",
+  authDomain: "mzansi-videos-app-26.firebaseapp.com",
+  projectId: "mzansi-videos-app-26",
+  storageBucket: "mzansi-videos-app-26.firebasestorage.app",
   messagingSenderId: "935072282423",
   appId: "1:935072282423:web:5f4e2a1a5207ce53018cb2"
 });
