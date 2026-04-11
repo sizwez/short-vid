@@ -221,6 +221,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user && isMounted.current) {
+          // Sync event before loading profile to prevent race conditions
+          const eventKey = `INITIAL_SESSION-${session.user.id}`;
+          lastAuthEvent.current = eventKey;
+          
           await loadProfile(session.user);
         }
       } catch (error) {
@@ -230,6 +234,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         }
       } finally {
         if (isMounted.current) {
+          // ATOMIC BARRIER: This is the ONLY place where isLoading flips to false
+          // ensuring we never show a 'partial' state that causes flickers.
           setIsLoading(false);
         }
       }
@@ -247,9 +253,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       console.log('Auth state changed:', event);
 
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && isMounted.current) {
-        // Only load profile if user is not already set or it's a new session
         if (!user || user.id !== session.user.id) {
-          await loadProfile(session.user);
+          if (!isLoading) {
+            await loadProfile(session.user);
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         if (isMounted.current) {
