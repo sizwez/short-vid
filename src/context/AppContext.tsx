@@ -240,8 +240,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     const { data: { subscription } } = onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
 
-      if (event === 'SIGNED_IN' && session?.user && isMounted.current) {
-        await loadProfile(session.user);
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && isMounted.current) {
+        // Only load profile if user is not already set or it's a new session
+        if (!user || user.id !== session.user.id) {
+          await loadProfile(session.user);
+        }
       } else if (event === 'SIGNED_OUT') {
         if (isMounted.current) {
           setUser(null);

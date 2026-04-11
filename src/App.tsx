@@ -10,19 +10,6 @@ const OnboardingFlow = React.lazy(() => import('./components/OnboardingFlow'));
 const FeatureCarousel = React.lazy(() => import('./components/FeatureCarousel'));
 const MainApp = React.lazy(() => import('./components/MainApp'));
 
-const registerServiceWorker = async () => {
-  if ('serviceWorker' in navigator && import.meta.env.PROD) {
-    try {
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      console.log('Service Worker registered:', registration);
-    } catch (error) {
-      console.error('Service Worker registration failed:', error);
-    }
-  }
-};
-
-registerServiceWorker();
-
 // A global fallback spinner class
 const FallbackSpinner = () => (
   <div className="flex flex-col items-center justify-center h-screen bg-black/95 backdrop-blur-sm z-50">
@@ -35,6 +22,20 @@ const FallbackSpinner = () => (
 );
 
 function App() {
+  React.useEffect(() => {
+    const registerServiceWorker = async () => {
+      if ('serviceWorker' in navigator && import.meta.env.PROD) {
+        try {
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          console.log('Service Worker registered:', registration);
+        } catch (error) {
+          console.error('Service Worker registration failed:', error);
+        }
+      }
+    };
+    registerServiceWorker();
+  }, []);
+
   return (
     <AppProvider>
       <ToastProvider>
