@@ -236,8 +236,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
     initializeAuth();
 
+    const lastAuthEvent = useRef<string | null>(null);
+
     // Subscribe to auth state changes
     const { data: { subscription } } = onAuthStateChange(async (event, session) => {
+      // Prevent rapid-fire duplicate event processing
+      const eventKey = `${event}-${session?.user?.id || 'none'}`;
+      if (lastAuthEvent.current === eventKey) return;
+      lastAuthEvent.current = eventKey;
+
       console.log('Auth state changed:', event);
 
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && isMounted.current) {

@@ -11,9 +11,6 @@ import { initMonitoring } from './lib/monitoring';
 initGA();
 initMonitoring();
 
-// Register service worker for PWA
-registerSW({ immediate: true });
-
 // eslint-disable-next-line react-refresh/only-export-components
 const Root = () => {
   useEffect(() => {
@@ -22,9 +19,7 @@ const Root = () => {
   }, []);
 
   return (
-    <StrictMode>
-      <App />
-    </StrictMode>
+    <App />
   );
 };
 
