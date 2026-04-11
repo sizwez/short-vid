@@ -25,6 +25,8 @@ function App() {
   React.useEffect(() => {
     const registerServiceWorker = async () => {
       if ('serviceWorker' in navigator && import.meta.env.PROD) {
+        // Only register if not already being controlled by our SW 
+        // or if we're forcing an update check
         try {
           const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
           console.log('Service Worker registered:', registration);

@@ -55,6 +55,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const isMounted = useRef(true);
+  const lastAuthEvent = useRef<string | null>(null);
 
   const isAuthenticated = user !== null;
 
@@ -235,8 +236,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-
-    const lastAuthEvent = useRef<string | null>(null);
 
     // Subscribe to auth state changes
     const { data: { subscription } } = onAuthStateChange(async (event, session) => {
