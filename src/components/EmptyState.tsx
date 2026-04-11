@@ -43,9 +43,9 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       case 'videos':
         return {
           icon: Video,
-          defaultTitle: 'No videos yet',
-          defaultDescription: 'Be the first to share a video!',
-          color: 'from-pink-500 to-orange-500'
+          defaultTitle: 'Be the Trendsetter',
+          defaultDescription: 'Mzansi is waiting for your vibe. Be the first to start the trend!',
+          color: 'from-orange-500 to-pink-600'
         };
       case 'comments':
         return {

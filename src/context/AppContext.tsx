@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Notification } from '../types';
 import { supabase } from '../lib/supabase';
 import { getUserProfile, onAuthStateChange } from '../services/authService';
@@ -54,6 +54,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+  const isMounted = useRef(true);
 
   const isAuthenticated = user !== null;
 
@@ -161,6 +162,25 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return getUserProfile(authUser.id);
   };
 
+  // Helper: create a fallback user object when profile fetch fails
+  const createFallbackUser = (authUser: SupabaseUser): User => ({
+    id: authUser.id,
+    name: authUser.user_metadata?.display_name || 'User',
+    username: authUser.user_metadata?.username || 'user',
+    avatar: authUser.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${authUser.id}&background=random`,
+    bio: '',
+    followers: 0,
+    following: 0,
+    isCreator: false,
+    subscription: 'free',
+    earnings: 0,
+    language: 'en',
+    notificationsEnabled: true,
+    dataSavingMode: false,
+    isPrivateAccount: false,
+    allowCommentsOnVideos: true,
+  });
+
   // Helper: load (or create) a profile and set state
   const loadProfile = async (authUser: SupabaseUser) => {
     try {
@@ -175,72 +195,40 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       if (!profile) {
         console.log('No profile found or timeout, auto-creating one…');
         const newProfile = await ensureProfile(authUser);
-        if (newProfile) {
+        if (newProfile && isMounted.current) {
           setUserFromProfile(newProfile);
-        } else {
-          const fallbackUser = {
-            id: authUser.id,
-            name: authUser.user_metadata?.display_name || 'User',
-            username: authUser.user_metadata?.username || 'user',
-            avatar: authUser.user_metadata?.avatar_url || '',
-            bio: '',
-            followers: 0,
-            following: 0,
-            isCreator: false,
-            subscription: 'free' as const,
-            earnings: 0,
-            language: 'en',
-            notificationsEnabled: true,
-            dataSavingMode: false,
-            isPrivateAccount: false,
-            allowCommentsOnVideos: true,
-          };
-          setUser(fallbackUser);
+        } else if (isMounted.current) {
+          setUser(createFallbackUser(authUser));
         }
-      } else {
+      } else if (isMounted.current) {
         setUserFromProfile(profile);
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
-      const fallbackUser = {
-        id: authUser.id,
-        name: authUser.user_metadata?.display_name || 'User',
-        username: authUser.user_metadata?.username || 'user',
-        avatar: authUser.user_metadata?.avatar_url || '',
-        bio: '',
-        followers: 0,
-        following: 0,
-        isCreator: false,
-        subscription: 'free' as const,
-        earnings: 0,
-        language: 'en',
-        notificationsEnabled: true,
-        dataSavingMode: false,
-        isPrivateAccount: false,
-        allowCommentsOnVideos: true,
-      };
-      setUser(fallbackUser);
+      if (isMounted.current) {
+        setUser(createFallbackUser(authUser));
+      }
     }
   };
 
   // Restore session on mount and listen for auth changes
   useEffect(() => {
-    let mounted = true;
+    isMounted.current = true;
 
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
-        if (session?.user && mounted) {
+        if (session?.user && isMounted.current) {
           await loadProfile(session.user);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        if (mounted) {
+        if (isMounted.current) {
           setAuthError('Failed to restore session');
         }
       } finally {
-        if (mounted) {
+        if (isMounted.current) {
           setIsLoading(false);
         }
       }
@@ -252,10 +240,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     const { data: { subscription } } = onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
 
-      if (event === 'SIGNED_IN' && session?.user && mounted) {
+      if (event === 'SIGNED_IN' && session?.user && isMounted.current) {
         await loadProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
-        if (mounted) {
+        if (isMounted.current) {
           setUser(null);
           setLanguage('en');
           setDataSavingMode(false);
@@ -268,7 +256,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     });
 
     return () => {
-      mounted = false;
+      isMounted.current = false;
       subscription.unsubscribe();
     };
   }, []);

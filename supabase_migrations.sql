@@ -542,8 +542,8 @@ CREATE TABLE IF NOT EXISTS public.user_devices (
 
 ALTER TABLE public.user_devices ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view user devices" ON public.user_devices
-  FOR SELECT USING (true);
+CREATE POLICY "Users can only view their own device tokens" ON public.user_devices
+  FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert their own device" ON public.user_devices
   FOR INSERT WITH CHECK (auth.uid() = user_id);

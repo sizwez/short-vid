@@ -31,3 +31,4 @@ coverage/
 # Misc
 .cache/
 .temp/
+.vercel

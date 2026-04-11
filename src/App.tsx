@@ -25,8 +25,12 @@ registerServiceWorker();
 
 // A global fallback spinner class
 const FallbackSpinner = () => (
-  <div className="flex flex-col items-center justify-center h-screen bg-black">
-    <div className="w-12 h-12 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" />
+  <div className="flex flex-col items-center justify-center h-screen bg-black/95 backdrop-blur-sm z-50">
+    <div className="relative">
+      <div className="w-16 h-16 rounded-full border-4 border-orange-500/20" />
+      <div className="absolute top-0 left-0 w-16 h-16 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
+    </div>
+    <p className="mt-4 text-gray-500 text-sm animate-pulse font-medium tracking-wider">LOADING...</p>
   </div>
 );
 

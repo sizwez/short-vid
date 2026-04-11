@@ -93,24 +93,24 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
             action: handleNativeShare,
         }] : []),
         {
-            name: 'Copy Link',
-            icon: Copy,
-            color: 'bg-gray-700',
-            action: handleCopyLink,
-        },
-        {
             name: 'WhatsApp',
             icon: MessageCircle,
-            color: 'bg-green-500',
+            color: 'bg-[#25D366]',
             action: () => {
                 window.open(`https://wa.me/?text=${encodeURIComponent(title + ' ' + url)}`, '_blank');
                 onClose();
             },
         },
         {
+            name: 'Copy',
+            icon: Copy,
+            color: 'bg-white/10',
+            action: handleCopyLink,
+        },
+        {
             name: 'Facebook',
             icon: Facebook,
-            color: 'bg-blue-600',
+            color: 'bg-[#1877F2]',
             action: () => {
                 window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
                 onClose();
@@ -119,7 +119,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
         {
             name: 'Twitter',
             icon: Twitter,
-            color: 'bg-sky-500',
+            color: 'bg-[#1DA1F2]',
             action: () => {
                 window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`, '_blank');
                 onClose();
@@ -128,7 +128,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
         {
             name: 'Email',
             icon: Mail,
-            color: 'bg-orange-500',
+            color: 'bg-[#EA4335]',
             action: () => {
                 window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
                 onClose();
@@ -137,7 +137,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
         {
             name: 'Report',
             icon: Flag,
-            color: 'bg-red-600',
+            color: 'bg-red-500/20',
             action: () => setShowReportOptions(true),
         },
     ];
@@ -149,7 +149,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/80 flex items-end justify-center z-50 sm:items-center"
+                    className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-end justify-center z-50 sm:items-center p-4"
                     onClick={onClose}
                 >
                     <motion.div
@@ -158,42 +158,44 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
                         exit={{ y: '100%', opacity: 0 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-gray-900 rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-md"
+                        className="glass rounded-t-[32px] sm:rounded-[40px] p-8 w-full max-w-md shadow-[0_25px_60px_rgba(0,0,0,0.6)] border border-white/10"
                     >
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-white">Share</h3>
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-2xl font-bold text-white tracking-tight">Share vibe</h3>
                             <button
                                 onClick={onClose}
-                                className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+                                className="p-2 hover:bg-white/10 rounded-full transition-all duration-300"
                             >
                                 <X className="w-6 h-6 text-gray-400" />
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="grid grid-cols-4 gap-y-8 gap-x-4 mb-10">
                             {shareOptions.map((option) => {
                                 const Icon = option.icon;
                                 return (
                                     <button
                                         key={option.name}
                                         onClick={option.action}
-                                        className="flex flex-col items-center space-y-2 p-3 rounded-xl hover:bg-gray-800 transition-colors"
+                                        className="flex flex-col items-center space-y-3 group"
                                     >
-                                        <div className={`${option.color} p-3 rounded-full`}>
+                                        <div className={`${option.color} p-4 rounded-[20px] shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 group-active:scale-95 border border-white/5`}>
                                             <Icon className="w-6 h-6 text-white" />
                                         </div>
-                                        <span className="text-xs text-gray-300">{option.name}</span>
+                                        <span className="text-[10px] font-bold text-gray-500 group-hover:text-white transition-colors uppercase tracking-[0.15em]">{option.name}</span>
                                     </button>
                                 );
                             })}
                         </div>
 
-                        <div className="bg-gray-800 rounded-xl p-3 flex items-center space-x-3 mb-6">
-                            <Link className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                            <p className="text-sm text-gray-300 flex-1 truncate">{url}</p>
+                        <div className="glass-light rounded-[24px] p-4 flex items-center space-x-4 mb-4 border border-white/5 shadow-inner">
+                            <div className="bg-white/5 p-2 rounded-xl">
+                                <Link className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            </div>
+                            <p className="text-sm text-gray-300 flex-1 truncate font-medium">{url}</p>
                             <button
                                 onClick={handleCopyLink}
-                                className="text-orange-500 font-medium text-sm hover:text-orange-400 transition-colors"
+                                className="bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-2.5 rounded-xl text-white font-bold text-xs hover:shadow-lg hover:shadow-pink-500/20 transition-all active:scale-95 uppercase tracking-wider"
                             >
                                 Copy
                             </button>
@@ -201,17 +203,17 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
 
                         {showReportOptions && (
                             <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="mt-4 p-4 bg-gray-800 rounded-2xl border border-gray-700"
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                className="mt-6 p-6 glass-light rounded-[28px] border border-red-500/20 shadow-2xl"
                             >
-                                <div className="flex items-center justify-between mb-4">
-                                    <h4 className="font-bold flex items-center">
-                                        <AlertTriangle className="w-4 h-4 text-orange-500 mr-2" />
-                                        Report Video
+                                <div className="flex items-center justify-between mb-5">
+                                    <h4 className="font-bold flex items-center text-red-400 uppercase tracking-wider text-xs">
+                                        <AlertTriangle className="w-4 h-4 mr-2" />
+                                        Report Content
                                     </h4>
-                                    <button onClick={() => setShowReportOptions(false)}>
-                                        <X className="w-4 h-4 text-gray-400" />
+                                    <button onClick={() => setShowReportOptions(false)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors">
+                                        <X className="w-4 h-4 text-gray-500" />
                                     </button>
                                 </div>
                                 <div className="space-y-2">
@@ -220,7 +222,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url, vi
                                             key={reason}
                                             onClick={() => handleReport(reason)}
                                             disabled={isReporting}
-                                            className="w-full text-left p-3 rounded-xl hover:bg-gray-700 transition-colors text-sm disabled:opacity-50"
+                                            className="w-full text-left px-4 py-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all text-sm font-semibold border border-transparent hover:border-red-500/10 disabled:opacity-50"
                                         >
                                             {reason}
                                         </button>

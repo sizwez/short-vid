@@ -92,17 +92,17 @@ export default defineConfig({
     })
   ],
 
-  optimizeDeps: {
-    exclude: ['lucide-react'],
-  },
   build: {
     target: 'esnext',
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['framer-motion', 'lucide-react'],
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
+          'react-core': ['react', 'react-dom', 'react-router-dom'],
+          'framer': ['framer-motion'],
+          'icons': ['lucide-react'],
+          'supabase-core': ['@supabase/supabase-js'],
+          'firebase-core': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
         }
       }
     }

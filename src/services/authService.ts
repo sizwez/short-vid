@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { captureError } from '../lib/monitoring';
 
 export interface UserProfile {
   id: string;
@@ -27,6 +28,7 @@ export interface SignUpData {
   username: string;
   displayName: string;
   phone?: string;
+  language?: string;
 }
 
 export interface SignInData {
@@ -53,16 +55,16 @@ export const signUp = async (data: SignUpData) => {
   if (authError) throw authError;
   if (!authData.user) throw new Error('Failed to create user');
 
-  // 2. Create user profile in public.users table
+  // 2. Create user profile in public.users table (Using upsert for idempotency)
   const { error: profileError } = await supabase
     .from('users')
-    .insert({
+    .upsert({
       id: authData.user.id,
       username: data.username.replace('@', ''),
       display_name: data.displayName,
-      bio: 'New to Mzansi Videos',
-      language: 'en',
       email: data.email,
+      bio: 'New to Mzansi Videos',
+      language: data.language || 'en',
       followers_count: 0,
       following_count: 0,
       is_creator: false,
@@ -73,12 +75,17 @@ export const signUp = async (data: SignUpData) => {
       data_saving_mode: false,
       is_private_account: false,
       allow_comments_on_videos: true,
-      account_status: 'active',
-    });
+      account_status: 'active'
+    }, { onConflict: 'id' });
 
   if (profileError) {
-    console.error('Profile creation error:', profileError);
-    // Don't throw - auth user was created successfully
+    console.error('Profile creation error during signup:', profileError);
+    captureError(profileError instanceof Error ? profileError : new Error(String(profileError)), { 
+      context: 'signup_profile_creation',
+      userId: authData.user.id 
+    });
+    // We don't throw here to allow the user to reach the dashboard, 
+    // where AppContext's ensureProfile will attempt a second shot at creation.
   }
 
   return authData;
@@ -261,7 +268,7 @@ export const handleOAuthCallback = async (userId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const username = `user_${userId.slice(0, 8)}`;
-      await supabase.from('users').insert({
+      await supabase.from('users').upsert({
         id: userId,
         username,
         display_name: user.user_metadata?.full_name || username,
@@ -280,7 +287,7 @@ export const handleOAuthCallback = async (userId: string) => {
         allow_comments_on_videos: true,
         account_status: 'active',
         avatar_url: user.user_metadata?.avatar_url || null,
-      });
+      }, { onConflict: 'id' });
     }
   }
   return true;

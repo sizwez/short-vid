@@ -156,273 +156,215 @@ const CreatorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pb-20">
+    <div className="min-h-screen bg-black text-white pb-24 font-['Outfit']">
       <div className="max-w-md mx-auto">
-        <div className="flex items-center justify-between p-4 pt-12">
-          <button className="p-2" onClick={() => navigate('/app')}>
-            <ArrowLeft className="w-6 h-6" />
+        {/* Transparent Header */}
+        <div className="flex items-center justify-between px-6 py-8">
+          <button className="p-3 glass rounded-2xl hover:bg-white/10 transition-all" onClick={() => navigate('/app')}>
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-semibold">Earnings</h1>
-          <button className="p-2" onClick={fetchCreatorData}>
-            <Download className={`w-6 h-6 ${isLoading ? 'animate-spin' : ''}`} />
+          <h1 className="text-xl font-bold tracking-tight">Earnings Centre</h1>
+          <button className="p-3 glass rounded-2xl hover:bg-white/10 transition-all" onClick={fetchCreatorData}>
+            <Download className={`w-5 h-5 ${isLoading ? 'animate-spin text-orange-500' : 'text-white/60'}`} />
           </button>
         </div>
 
-        <div className="px-4 mb-4">
-          <div className="bg-gradient-to-br from-orange-500 to-pink-600 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-white/80 text-sm">Available Balance</span>
-              <div className="bg-white/20 px-3 py-1 rounded-full">
-                <span className="text-xs font-medium">R{earnings?.unpaid_earnings?.toFixed(2) || '0.00'}</span>
-              </div>
-            </div>
-            <div className="text-4xl font-bold mb-1">
-              R{earnings?.unpaid_earnings?.toFixed(2) || '0.00'}
-            </div>
-            <div className="flex items-center gap-2 text-white/70 text-sm">
-              <TrendingUp className="w-4 h-4" />
-              <span>${((earnings?.unpaid_earnings || 0) * 0.055).toFixed(2)} USD</span>
-            </div>
+        {/* Main Balance Card */}
+        <div className="px-6 mb-8">
+          <div className="relative overflow-hidden group">
+             {/* Background Glow */}
+             <div className="absolute -top-20 -right-20 w-64 h-64 bg-orange-600/20 rounded-full blur-[100px]" />
+             <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-pink-600/20 rounded-full blur-[100px]" />
+             
+             <div className="relative glass-light rounded-[32px] p-8 border border-white/5 overflow-hidden">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-2 bg-white/5 py-2 px-4 rounded-full border border-white/5">
+                    <Wallet className="w-4 h-4 text-orange-500" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-white/60">Available Balance</span>
+                  </div>
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                </div>
 
-            {earnings && earnings.unpaid_earnings >= 1 && (
-              <button
-                onClick={handleRequestWithdrawal}
-                disabled={!payoutMethod}
-                className="w-full mt-4 bg-white text-orange-600 py-3 rounded-xl font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {payoutMethod ? 'Withdraw Funds' : 'Connect Payout Method'}
-              </button>
-            )}
+                <div className="space-y-1 mb-8">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-white/40">R</span>
+                    <motion.span 
+                      key={earnings?.unpaid_earnings}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-6xl font-black tracking-tighter"
+                    >
+                      {earnings?.unpaid_earnings?.toFixed(2) || '0.00'}
+                    </motion.span>
+                  </div>
+                  <p className="text-white/30 text-sm font-medium">Approx. ${((earnings?.unpaid_earnings || 0) * 0.055).toFixed(2)} USD</p>
+                </div>
+
+                {earnings && earnings.unpaid_earnings >= 1 ? (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleRequestWithdrawal}
+                    disabled={!payoutMethod}
+                    className="w-full bg-orange-500 text-white py-5 rounded-2xl font-bold shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                  >
+                    {payoutMethod ? (
+                      <>
+                        <span>Withdraw Funds</span>
+                        <ArrowUpRight className="w-5 h-5" />
+                      </>
+                    ) : 'Connect Payout Method'}
+                  </motion.button>
+                ) : (
+                  <div className="w-full bg-white/5 border border-white/5 text-white/40 py-5 rounded-2xl font-bold text-center">
+                    Earnings below threshold
+                  </div>
+                )}
+             </div>
           </div>
         </div>
 
-        <div className="px-4 mb-4">
-          <div className="bg-gray-900 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-gray-400 text-sm">Progress to next payout</span>
-              <span className="text-orange-400 text-sm font-medium">
-                R{(PAYOUT_THRESHOLD - (earnings?.unpaid_earnings || 0)).toFixed(2)} to go
+        {/* Payout Progress */}
+        <div className="px-6 mb-8">
+          <div className="glass-light rounded-3xl p-6 border border-white/5">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-white/50 text-xs font-bold uppercase tracking-widest">Next Payout Goal</span>
+              <span className="text-orange-400 text-sm font-black">
+                {progressPercent.toFixed(0)}%
               </span>
             </div>
-            <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-4 bg-white/5 rounded-full overflow-hidden p-1">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${progressPercent}%` }}
-                className="h-full bg-gradient-to-r from-orange-500 to-pink-500"
+                className="h-full bg-gradient-to-r from-orange-500 via-pink-500 to-orange-400 rounded-full shadow-[0_0_15px_rgba(249,115,22,0.4)]"
               />
             </div>
-            <div className="flex justify-between mt-2 text-xs text-gray-500">
-              <span>R0</span>
-              <span>R{PAYOUT_THRESHOLD}</span>
+            <div className="flex justify-between mt-4">
+              <span className="text-[10px] font-bold text-white/20 uppercase">R0 MIN</span>
+              <span className="text-[10px] font-bold text-white/20 uppercase">R{PAYOUT_THRESHOLD} TARGET</span>
             </div>
           </div>
         </div>
 
-        <div className="px-4 mb-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-900 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Eye className="w-4 h-4 text-blue-500" />
-                <span className="text-gray-400 text-xs">This Month</span>
+        {/* Stats Grid */}
+        <div className="px-6 mb-8 grid grid-cols-2 gap-4">
+            <div className="glass-light rounded-3xl p-6 border border-white/5 group">
+              <div className="w-10 h-10 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
+                <Eye className="w-5 h-5 text-blue-500" />
               </div>
-              <div className="text-xl font-bold">{earnings?.monthly_views?.toLocaleString() || 0}</div>
-              <div className="text-gray-500 text-xs">total views</div>
+              <div className="text-2xl font-black tracking-tight">{earnings?.monthly_views?.toLocaleString() || 0}</div>
+              <div className="text-white/30 text-xs font-bold uppercase tracking-tighter mt-1">Monthly Views</div>
             </div>
             
-            <div className="bg-gray-900 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-4 h-4 text-green-500" />
-                <span className="text-gray-400 text-xs">Estimated</span>
+            <div className="glass-light rounded-3xl p-6 border border-white/5 group">
+              <div className="w-10 h-10 bg-green-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-green-500/20 transition-colors">
+                <DollarSign className="w-5 h-5 text-green-500" />
               </div>
-              <div className="text-xl font-bold">
+              <div className="text-2xl font-black tracking-tight">
                 ${((earnings?.monthly_earnings || 0) * 0.055).toFixed(2)}
               </div>
-              <div className="text-gray-500 text-xs">this month</div>
+              <div className="text-white/30 text-xs font-bold uppercase tracking-tighter mt-1">EST. Revenue</div>
             </div>
-          </div>
         </div>
 
-        <div className="px-4 mb-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-900 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-4 h-4 text-yellow-500" />
-                <span className="text-gray-400 text-xs">Pending</span>
+        {/* Payout Method Section */}
+        <div className="px-6 mb-8">
+          <div className="glass-light rounded-[32px] p-8 border border-white/5">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-3">
+              <div className="p-2 bg-orange-500/10 rounded-xl">
+                 <Banknote className="w-5 h-5 text-orange-500" />
               </div>
-              <div className="text-xl font-bold">
-                {pendingPayout ? `R${Number(pendingPayout.amount).toFixed(2)}` : 'R0.00'}
-              </div>
-              <div className="text-gray-500 text-xs">
-                {pendingPayout ? 'Processing' : 'No pending'}
-              </div>
-            </div>
-            
-            <div className="bg-gray-900 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-gray-400 text-xs">Total Paid</span>
-              </div>
-              <div className="text-xl font-bold">R{totalPaid.toFixed(2)}</div>
-              <div className="text-gray-500 text-xs">all time</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-4 mb-4">
-          <div className="bg-gray-900 rounded-xl p-4">
-            <h3 className="font-semibold mb-4 flex items-center">
-              <Wallet className="w-5 h-5 mr-2" />
-              Payout Method
+              Settlement Account
             </h3>
             
             {payoutMethod ? (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-green-400 font-medium flex items-center gap-2">
-                    <Banknote className="w-4 h-4" />
-                    Connected
-                  </span>
+              <div className="bg-white/5 rounded-2xl p-6 border border-white/10 group relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center border border-white/10">
+                       <CreditCard className="w-6 h-6 text-white/60" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">{payoutMethod.bank_name}</p>
+                      <p className="text-white/40 text-xs font-medium">
+                        •••• {payoutMethod.account_number?.slice(-4)}
+                      </p>
+                    </div>
+                  </div>
                   {payoutMethod.verified && (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <div className="bg-green-500/20 p-1.5 rounded-full">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    </div>
                   )}
                 </div>
-                <p className="text-white font-medium">{payoutMethod.bank_name}</p>
-                <p className="text-gray-400 text-sm">
-                  {payoutMethod.account_type === 'bank_transfer' ? 'Bank Transfer' : 'Mobile Money'} •••• {payoutMethod.account_number?.slice(-4)}
-                </p>
-                <p className="text-gray-400 text-sm mt-1">{payoutMethod.account_name}</p>
+                <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                   <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Default Payout</span>
+                   <span className="text-xs font-bold text-orange-500/80">Manage</span>
+                </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-gray-400 text-sm mb-4">
-                  Connect a payout method to receive your earnings
+              <div className="space-y-4">
+                <p className="text-white/30 text-sm leading-relaxed mb-4">
+                  Connect your South African bank account or mobile money wallet to receive real-time settlements.
                 </p>
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => navigate('/app/payment')}
-                  className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+                  className="w-full bg-white text-black py-5 rounded-2xl font-bold hover:bg-gray-200 transition-all flex items-center justify-center gap-3"
                 >
                   <CreditCard className="w-5 h-5" />
-                  Connect Bank Account
-                </button>
-                <button
-                  onClick={() => navigate('/app/payment')}
-                  className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Wallet className="w-5 h-5" />
-                  Connect Pay</button>
-              Pal
-                </div>
+                  Link Bank Account
+                </motion.button>
+              </div>
             )}
           </div>
         </div>
 
+        {/* Payout History */}
         {withdrawalRequests.length > 0 && (
-          <div className="px-4 mb-4">
-            <h3 className="font-semibold mb-4 flex items-center">
-              <ArrowUpRight className="w-5 h-5 mr-2" />
-              Payout History
+          <div className="px-6 mb-12">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-3">
+               <div className="p-2 bg-pink-500/10 rounded-xl">
+                  <Clock className="w-5 h-5 text-pink-500" />
+               </div>
+               Transaction Log
             </h3>
-            <div className="space-y-2">
-              {withdrawalRequests.map((req) => (
-                <div key={req.id} className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      req.status === 'completed' ? 'bg-green-500/20' :
-                      req.status === 'pending' ? 'bg-yellow-500/20' :
-                      'bg-red-500/20'
+            <div className="space-y-3">
+              {withdrawalRequests.map((req, i) => (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  key={req.id} 
+                  className="glass-light rounded-3xl p-5 flex items-center justify-between border border-white/0 hover:border-white/10 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                      req.status === 'completed' ? 'bg-green-500/10 text-green-500' :
+                      req.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                      'bg-red-500/10 text-red-500'
                     }`}>
-                      {req.status === 'completed' ? (
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                      ) : req.status === 'pending' ? (
-                        <Clock className="w-5 h-5 text-yellow-500" />
-                      ) : (
-                        <AlertCircle className="w-5 h-5 text-red-500" />
-                      )}
+                      {req.status === 'completed' ? <CheckCircle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
                     </div>
                     <div>
-                      <p className="font-medium">R{Number(req.amount).toFixed(2)}</p>
-                      <p className="text-gray-400 text-sm">
-                        {new Date(req.created_at).toLocaleDateString()}
+                      <p className="font-bold text-lg leading-none mb-1">R{Number(req.amount).toFixed(2)}</p>
+                      <p className="text-white/30 text-xs font-medium">
+                        {new Date(req.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </p>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${
                     req.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                    req.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                    req.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500' :
                     'bg-red-500/20 text-red-400'
                   }`}>
-                    {req.status === 'completed' ? 'Paid' : req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                  </span>
-                </div>
+                    {req.status}
+                  </div>
+                </motion.div>
               ))}
             </div>
           </div>
         )}
-
-        <div className="px-4 mb-4">
-          <div className="bg-gray-900 rounded-xl p-4">
-            <h3 className="font-semibold mb-4 flex items-center">
-              <BarChart3 className="w-5 h-5 mr-2" />
-              Performance
-            </h3>
-            <div className="h-32 bg-gradient-to-t from-orange-500/20 to-transparent rounded-lg flex items-end justify-around p-2">
-              {[65, 80, 45, 90, 70, 85, 60].map((height, i) => (
-                <div
-                  key={i}
-                  className="w-8 bg-gradient-to-t from-orange-500 to-orange-400 rounded-t"
-                  style={{ height: `${height}%` }}
-                />
-              ))}
-            </div>
-            <div className="flex justify-around text-xs text-gray-400 mt-2">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                <span key={day}>{day}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-4 mb-4">
-          <h3 className="font-semibold mb-4">Recent Videos</h3>
-          <div className="space-y-3">
-            {recentVideos.map((video, index) => (
-              <motion.div
-                key={video.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-gray-900 rounded-xl p-4"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-16 bg-gray-800 rounded flex items-center justify-center overflow-hidden">
-                    {video.thumbnail_url ? (
-                      <img src={video.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <Play className="w-5 h-5 text-gray-600" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium mb-1 truncate max-w-[200px]">{video.title}</h4>
-                    <div className="flex items-center space-x-4 text-xs text-gray-400">
-                      <span className="flex items-center">
-                        <Eye className="w-3 h-3 mr-1" />
-                        {video.views >= 1000 ? `${(video.views / 1000).toFixed(1)}K` : video.views}
-                      </span>
-                      <span className="flex items-center">
-                        <Heart className="w-3 h-3 mr-1" />
-                        {video.likes}
-                      </span>
-                      <span className="flex items-center">
-                        <MessageCircle className="w-3 h-3 mr-1" />
-                        {video.comments}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {showPayoutModal && (

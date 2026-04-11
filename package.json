@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node server.js",
+    "server": "node api/index.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "setup:db": "node scripts/setup-db.js"
   },
@@ -17,12 +17,14 @@
     "@sentry/react": "^10.38.0",
     "@sentry/vite-plugin": "^4.9.1",
     "@supabase/supabase-js": "^2.57.4",
+    "@types/simple-peer": "^9.11.9",
     "axios": "^1.11.0",
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",
     "express": "^5.2.1",
     "firebase": "^10.14.1",
+    "firebase-admin": "^12.7.0",
     "framer-motion": "^11.11.17",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.511.0",
@@ -30,7 +32,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-ga4": "^2.1.0",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "simple-peer": "^9.11.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
