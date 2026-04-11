@@ -261,9 +261,6 @@ app.post('/api/paystack/webhook', async (req, res) => {
           console.error('Failed to process webhook:', dbError);
         }
       }
-    }
-      }
-    }
     res.json({ received: true });
   } catch (error) {
     console.error('Webhook error:', error);
