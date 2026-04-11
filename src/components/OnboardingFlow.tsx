@@ -662,10 +662,10 @@ const AuthScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white p-6 overflow-x-hidden">
       <div className="max-w-md mx-auto min-h-[600px] flex flex-col items-center justify-center">
-        <AnimatePresence>
-          {mode === 'welcome' && <WelcomeScreen onModeChange={setMode} />}
+<AnimatePresence mode="wait">
+          {mode === 'welcome' && <WelcomeScreen key="welcome" onModeChange={setMode} />}
           {mode === 'login' && (
-            <LoginScreen
+            <LoginScreen key="login"
               formData={formData}
               setFormData={setFormData}
               isLoading={isLoading}
@@ -678,8 +678,8 @@ const AuthScreen: React.FC = () => {
               onResend={handleResend}
             />
           )}
-          {mode === 'signup' && (
-            <SignupScreen
+{mode === 'signup' && (
+            <SignupScreen key="signup"
               formData={formData}
               setFormData={setFormData}
               isLoading={isLoading}
@@ -689,8 +689,8 @@ const AuthScreen: React.FC = () => {
               setShowPassword={setShowPassword}
             />
           )}
-          {mode === 'forgot' && (
-            <ForgotPasswordScreen
+{mode === 'forgot' && (
+            <ForgotPasswordScreen key="forgot"
               formData={formData}
               setFormData={setFormData}
               isLoading={isLoading}
@@ -698,8 +698,8 @@ const AuthScreen: React.FC = () => {
               onModeChange={setMode}
             />
           )}
-          {mode === 'reset' && (
-            <ResetPasswordScreen
+{mode === 'reset' && (
+            <ResetPasswordScreen key="reset"
               formData={formData}
               setFormData={setFormData}
               isLoading={isLoading}

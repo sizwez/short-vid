@@ -6,7 +6,11 @@
       "destination": "/api/index.js"
     },
     {
-      "source": "/(.*)",
+      "source": "/firebase-messaging-sw.js",
+      "destination": "/firebase-messaging-sw.js"
+    },
+    {
+      "source": "/((?!firebase-messaging-sw.js|vite.svg|pwa-.*).*)",
       "destination": "/"
     }
   ]
