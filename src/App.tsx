@@ -26,20 +26,6 @@ const FallbackSpinner = () => (
 const AppContent = () => {
   const { isLoading, isAuthenticated } = useApp();
 
-  React.useEffect(() => {
-    const registerServiceWorker = async () => {
-      if ('serviceWorker' in navigator && import.meta.env.PROD) {
-        try {
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-          console.log('Service Worker registered:', registration);
-        } catch (error) {
-          console.error('Service Worker registration failed:', error);
-        }
-      }
-    };
-    registerServiceWorker();
-  }, []);
-
   return (
     <div className="min-h-screen bg-black">
       <AnimatePresence>

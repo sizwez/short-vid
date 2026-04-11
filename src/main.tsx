@@ -11,6 +11,13 @@ import { initMonitoring } from './lib/monitoring';
 initGA();
 initMonitoring();
 
+// Manual Service Worker Registration for background messaging
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    .then(reg => console.log('Top-level Service Worker registered:', reg))
+    .catch(err => console.error('Top-level Service Worker failed:', err));
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 const Root = () => {
   useEffect(() => {
