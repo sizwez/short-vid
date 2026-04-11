@@ -662,7 +662,7 @@ const AuthScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white p-6 overflow-x-hidden">
       <div className="max-w-md mx-auto min-h-[600px] flex flex-col items-center justify-center">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {mode === 'welcome' && <WelcomeScreen onModeChange={setMode} />}
           {mode === 'login' && (
             <LoginScreen

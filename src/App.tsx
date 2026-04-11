@@ -1,11 +1,13 @@
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './components/ToastContainer';
+import { useApp } from './hooks/useApp';
+import SplashScreen from './components/SplashScreen';
 import './index.css';
 
 // Lazy loaded components for code splitting
-const SplashScreen = React.lazy(() => import('./components/SplashScreen'));
 const OnboardingFlow = React.lazy(() => import('./components/OnboardingFlow'));
 const FeatureCarousel = React.lazy(() => import('./components/FeatureCarousel'));
 const MainApp = React.lazy(() => import('./components/MainApp'));
@@ -21,12 +23,12 @@ const FallbackSpinner = () => (
   </div>
 );
 
-function App() {
+const AppContent = () => {
+  const { isLoading, isAuthenticated } = useApp();
+
   React.useEffect(() => {
     const registerServiceWorker = async () => {
       if ('serviceWorker' in navigator && import.meta.env.PROD) {
-        // Only register if not already being controlled by our SW 
-        // or if we're forcing an update check
         try {
           const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
           console.log('Service Worker registered:', registration);
@@ -39,19 +41,45 @@ function App() {
   }, []);
 
   return (
+    <div className="min-h-screen bg-black">
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            key="splash"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="fixed inset-0 z-[100]"
+          >
+            <SplashScreen />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Suspense fallback={<FallbackSpinner />}>
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              isLoading ? <div className="h-screen bg-black" /> : 
+              isAuthenticated ? <Navigate to="/app" replace /> : <Navigate to="/onboarding" replace />
+            } 
+          />
+          <Route path="/features" element={<FeatureCarousel />} />
+          <Route path="/onboarding/*" element={<OnboardingFlow />} />
+          <Route path="/app/*" element={<MainApp />} />
+        </Routes>
+      </Suspense>
+    </div>
+  );
+};
+
+function App() {
+  return (
     <AppProvider>
       <ToastProvider>
         <Router>
-          <div className="min-h-screen bg-black">
-            <Suspense fallback={<FallbackSpinner />}>
-              <Routes>
-                <Route path="/" element={<SplashScreen />} />
-                <Route path="/features" element={<FeatureCarousel />} />
-                <Route path="/onboarding/*" element={<OnboardingFlow />} />
-                <Route path="/app/*" element={<MainApp />} />
-              </Routes>
-            </Suspense>
-          </div>
+          <AppContent />
         </Router>
       </ToastProvider>
     </AppProvider>

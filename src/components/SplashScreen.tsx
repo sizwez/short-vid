@@ -5,24 +5,8 @@ import { Play, Heart } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const SplashScreen: React.FC = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      return session;
-    };
-
-    const timer = setTimeout(async () => {
-      const session = await checkAuth();
-      navigate(session ? '/app' : '/onboarding');
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [navigate]);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 flex items-center justify-center">
       <motion.div
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
