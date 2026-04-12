@@ -1,8 +1,8 @@
 import React, { createContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Notification } from '../types';
 import { supabase } from '../lib/supabase';
-import { getUserProfile, onAuthStateChange } from '../services/authService';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { getUserProfile, onAuthStateChange, getSession } from '../services/authService';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AppContextType {
   user: User | null;
@@ -10,6 +10,8 @@ interface AppContextType {
   language: string;
   setLanguage: (language: string) => void;
   isAuthenticated: boolean;
+  isEmailVerified: boolean;
+  refreshVerificationStatus: () => Promise<boolean>;
   dataSavingMode: boolean;
   setDataSavingMode: (mode: boolean) => void;
   notifications: Notification[];
@@ -45,6 +47,7 @@ interface AppProviderProps {
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [language, setLanguage] = useState('en');
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [dataSavingMode, setDataSavingMode] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -54,13 +57,31 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+  
   const isMounted = useRef(true);
-  const lastAuthEvent = useRef<string | null>(null);
+  const isInitializing = useRef(true);
+  const userRef = useRef<User | null>(null);
 
   const isAuthenticated = user !== null;
 
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   const addPendingAction = (action: PendingAction) => {
     setPendingActions(prev => [...prev, action]);
+  };
+
+  /**
+   * Supabase Auth email verification check
+   */
+  const refreshVerificationStatus = async (): Promise<boolean> => {
+    const { data: { user: authUser }, error } = await supabase.auth.getUser();
+    if (error || !authUser) return false;
+    
+    const verified = !!authUser.email_confirmed_at;
+    setIsEmailVerified(verified);
+    return verified;
   };
 
   useEffect(() => {
@@ -101,8 +122,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   }, [isOnline, pendingActions, user]);
 
-  // Helper: set user state from a profile object
-  const setUserFromProfile = (profile: NonNullable<Awaited<ReturnType<typeof getUserProfile>>>) => {
+  const setUserFromProfile = (profile: any) => {
     setUser({
       id: profile.id,
       name: profile.display_name || profile.username,
@@ -127,11 +147,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setAllowCommentsOnVideos(profile.allow_comments_on_videos);
   };
 
-  // Helper: auto-create a profile row when one doesn't exist yet
   const ensureProfile = async (authUser: SupabaseUser) => {
-    const meta = authUser.user_metadata || {};
-    const username = meta.username || meta.display_name?.toLowerCase().replace(/\s+/g, '_') || authUser.email?.split('@')[0] || 'user';
-    const displayName = meta.display_name || username;
+    const metadata = authUser.user_metadata;
+    const displayName = metadata.display_name || authUser.email?.split('@')[0] || 'user';
+    const username = metadata.username || displayName.toLowerCase().replace(/\s+/g, '_');
 
     const { error } = await supabase.from('users').upsert(
       {
@@ -140,18 +159,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         display_name: displayName,
         bio: 'New to Mzansi Videos',
         email: authUser.email,
-        followers_count: 0,
-        following_count: 0,
-        is_creator: false,
-        verified_badge: false,
-        subscription: 'free',
-        earnings: 0,
         language: 'en',
-        notifications_enabled: true,
-        data_saving_mode: false,
-        is_private_account: false,
-        allow_comments_on_videos: true,
-        account_status: 'active',
       },
       { onConflict: 'id' }
     );
@@ -163,12 +171,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return getUserProfile(authUser.id);
   };
 
-  // Helper: create a fallback user object when profile fetch fails
   const createFallbackUser = (authUser: SupabaseUser): User => ({
     id: authUser.id,
-    name: authUser.user_metadata?.display_name || 'User',
-    username: authUser.user_metadata?.username || 'user',
-    avatar: authUser.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${authUser.id}&background=random`,
+    name: authUser.user_metadata.display_name || 'User',
+    username: authUser.user_metadata.username || authUser.email?.split('@')[0] || 'user',
+    avatar: `https://ui-avatars.com/api/?name=${authUser.id}&background=random`,
     bio: '',
     followers: 0,
     following: 0,
@@ -182,15 +189,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     allowCommentsOnVideos: true,
   });
 
-  // Helper: load (or create) a profile and set state
   const loadProfile = async (authUser: SupabaseUser) => {
+    setIsEmailVerified(!!authUser.email_confirmed_at);
+
     try {
       const profilePromise = getUserProfile(authUser.id);
-      
-      const timeoutPromise = new Promise<null>((resolve) => 
+      const timeoutPromise = new Promise<null>((resolve) =>
         setTimeout(() => resolve(null), 5000)
       );
-      
+
       const profile = await Promise.race([profilePromise, timeoutPromise]);
 
       if (!profile) {
@@ -212,55 +219,34 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
-  // Restore session on mount and listen for auth changes
   useEffect(() => {
     isMounted.current = true;
 
-    const initializeAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user && isMounted.current) {
-          // Sync event before loading profile to prevent race conditions
-          const eventKey = `INITIAL_SESSION-${session.user.id}`;
-          lastAuthEvent.current = eventKey;
-          
-          await loadProfile(session.user);
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        if (isMounted.current) {
-          setAuthError('Failed to restore session');
-        }
-      } finally {
-        if (isMounted.current) {
-          // ATOMIC BARRIER: This is the ONLY place where isLoading flips to false
-          // ensuring we never show a 'partial' state that causes flickers.
-          setIsLoading(false);
-        }
+    const initAuth = async () => {
+      const session = await getSession();
+      if (session?.user && isMounted.current) {
+        await loadProfile(session.user);
+      }
+      if (isInitializing.current && isMounted.current) {
+        isInitializing.current = false;
+        setIsLoading(false);
       }
     };
 
-    initializeAuth();
+    initAuth();
 
-    // Subscribe to auth state changes
-    const { data: { subscription } } = onAuthStateChange(async (event, session) => {
-      // Prevent rapid-fire duplicate event processing
-      const eventKey = `${event}-${session?.user?.id || 'none'}`;
-      if (lastAuthEvent.current === eventKey) return;
-      lastAuthEvent.current = eventKey;
+    const unsubscribe = onAuthStateChange(async (event, session) => {
+      const authUser = session?.user;
 
-      console.log('Auth state changed:', event);
-
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && isMounted.current) {
-        if (!user || user.id !== session.user.id) {
-          if (!isLoading) {
-            await loadProfile(session.user);
-          }
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && authUser && isMounted.current) {
+        if (!userRef.current || userRef.current.id !== authUser.id) {
+          await loadProfile(authUser);
         }
       } else if (event === 'SIGNED_OUT') {
         if (isMounted.current) {
+          userRef.current = null;
           setUser(null);
+          setIsEmailVerified(false);
           setLanguage('en');
           setDataSavingMode(false);
           setNotificationsEnabled(true);
@@ -269,11 +255,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           setNotifications([]);
         }
       }
+      
+      if (isInitializing.current && isMounted.current) {
+        isInitializing.current = false;
+        setIsLoading(false);
+      }
     });
 
     return () => {
       isMounted.current = false;
-      subscription.unsubscribe();
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
     };
   }, []);
 
@@ -285,6 +278,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         language,
         setLanguage,
         isAuthenticated,
+        isEmailVerified,
+        refreshVerificationStatus,
         dataSavingMode,
         setDataSavingMode,
         notifications,

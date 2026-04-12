@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { captureError } from '../lib/monitoring';
 
 export interface UserProfile {
@@ -37,46 +36,36 @@ export interface SignInData {
 }
 
 /**
- * Sign up a new user with email and password
+ * Sign up a new user with Supabase Auth
  */
 export const signUp = async (data: SignUpData) => {
-  // 1. Create auth user
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // 1. Sign up with Supabase Auth
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
       data: {
-        username: data.username,
+        username: data.username.replace('@', ''),
         display_name: data.displayName,
       }
     }
   });
 
-  if (authError) throw authError;
-  if (!authData.user) throw new Error('Failed to create user');
+  if (signUpError) throw signUpError;
+  if (!authData.user) throw new Error('Sign up failed: No user returned');
 
-  // 2. Create user profile in public.users table (Using upsert for idempotency)
+  // 2. Profile is automatically created via DB trigger if you set it up,
+  // but here we'll do it manually to ensure consistency with existing code
   const { error: profileError } = await supabase
     .from('users')
-    .upsert({
+    .insert({
       id: authData.user.id,
       username: data.username.replace('@', ''),
       display_name: data.displayName,
       email: data.email,
       bio: 'New to Mzansi Videos',
       language: data.language || 'en',
-      followers_count: 0,
-      following_count: 0,
-      is_creator: false,
-      verified_badge: false,
-      subscription: 'free',
-      earnings: 0,
-      notifications_enabled: true,
-      data_saving_mode: false,
-      is_private_account: false,
-      allow_comments_on_videos: true,
-      account_status: 'active'
-    }, { onConflict: 'id' });
+    });
 
   if (profileError) {
     console.error('Profile creation error during signup:', profileError);
@@ -84,15 +73,13 @@ export const signUp = async (data: SignUpData) => {
       context: 'signup_profile_creation',
       userId: authData.user.id 
     });
-    // We don't throw here to allow the user to reach the dashboard, 
-    // where AppContext's ensureProfile will attempt a second shot at creation.
   }
 
-  return authData;
+  return { user: authData.user, session: authData.session };
 };
 
 /**
- * Sign in an existing user with email and password
+ * Sign in an existing user with Supabase
  */
 export const signIn = async (data: SignInData) => {
   const { data: authData, error } = await supabase.auth.signInWithPassword({
@@ -101,7 +88,7 @@ export const signIn = async (data: SignInData) => {
   });
 
   if (error) throw error;
-  return authData;
+  return { user: authData.user, session: authData.session };
 };
 
 /**
@@ -118,7 +105,7 @@ export const signOut = async () => {
 export const resendConfirmationEmail = async (email: string) => {
   const { error } = await supabase.auth.resend({
     type: 'signup',
-    email: email,
+    email,
   });
   if (error) throw error;
   return true;
@@ -129,18 +116,18 @@ export const resendConfirmationEmail = async (email: string) => {
  */
 export const resetPassword = async (email: string) => {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/onboarding/auth?reset=true`,
+    redirectTo: `${window.location.origin}/reset-password`,
   });
   if (error) throw error;
   return true;
 };
 
 /**
- * Update password (when user has reset token)
+ * Update password
  */
 export const updatePassword = async (newPassword: string) => {
   const { error } = await supabase.auth.updateUser({
-    password: newPassword,
+    password: newPassword
   });
   if (error) throw error;
   return true;
@@ -150,18 +137,14 @@ export const updatePassword = async (newPassword: string) => {
  * Get the current authenticated user
  */
 export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
+  const { data: { user } } = await supabase.auth.getUser();
   return user;
 };
 
 /**
- * Get user profile from public.users table
+ * Get user profile from public.users table (Supabase)
  */
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-
   try {
     const { data, error } = await supabase
       .from('users')
@@ -170,20 +153,16 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
       .single();
 
     if (error) {
-      console.error('Error fetching profile:', error);
+      if (error.code !== 'PGRST116') { // PGRST116 is 'no rows found'
+        console.error('Error fetching profile:', error);
+      }
       return null;
     }
 
     return data;
   } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      console.error('Profile fetch timed out');
-    } else {
-      console.error('Error fetching profile:', err);
-    }
+    console.error('Error fetching profile:', err);
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 };
 
@@ -203,48 +182,47 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
 };
 
 /**
- * Subscribe to auth state changes
+ * Subscribe to auth state changes using Supabase
  */
-export const onAuthStateChange = (callback: (event: AuthChangeEvent, session: Session | null) => void) => {
-  return supabase.auth.onAuthStateChange(callback);
+export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(event, session);
+  });
+  
+  return () => subscription.unsubscribe();
 };
 
 /**
- * Get current session
+ * Get current session helper
  */
 export const getSession = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) throw error;
+  const { data: { session } } = await supabase.auth.getSession();
   return session;
 };
 
 /**
- * Sign in with Google OAuth
+ * Sign in with Google OAuth (Supabase)
  */
 export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/app`,
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
-      },
-    },
+      redirectTo: window.location.origin
+    }
   });
   if (error) throw error;
   return data;
 };
 
 /**
- * Sign in with Apple OAuth
+ * Sign in with Apple OAuth (Supabase)
  */
 export const signInWithApple = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: `${window.location.origin}/app`,
-    },
+      redirectTo: window.location.origin
+    }
   });
   if (error) throw error;
   return data;
@@ -253,11 +231,14 @@ export const signInWithApple = async () => {
 /**
  * Handle OAuth callback - create user profile if needed
  */
-export const handleOAuthCallback = async (userId: string) => {
+export const handleOAuthCallback = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
   const { data: existingUser, error: fetchError } = await supabase
     .from('users')
     .select('id')
-    .eq('id', userId)
+    .eq('id', user.id)
     .single();
 
   if (fetchError && fetchError.code !== 'PGRST116') {
@@ -265,30 +246,17 @@ export const handleOAuthCallback = async (userId: string) => {
   }
 
   if (!existingUser) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const username = `user_${userId.slice(0, 8)}`;
-      await supabase.from('users').upsert({
-        id: userId,
-        username,
-        display_name: user.user_metadata?.full_name || username,
-        bio: 'New to Mzansi Videos',
-        language: 'en',
-        email: user.email,
-        followers_count: 0,
-        following_count: 0,
-        is_creator: false,
-        verified_badge: false,
-        subscription: 'free',
-        earnings: 0,
-        notifications_enabled: true,
-        data_saving_mode: false,
-        is_private_account: false,
-        allow_comments_on_videos: true,
-        account_status: 'active',
-        avatar_url: user.user_metadata?.avatar_url || null,
-      }, { onConflict: 'id' });
-    }
+    const username = user.user_metadata?.username || `user_${user.id.slice(0, 8)}`;
+    const display_name = user.user_metadata?.display_name || username;
+
+    await supabase.from('users').insert({
+      id: user.id,
+      username,
+      display_name,
+      email: user.email,
+      bio: 'New to Mzansi Videos',
+      avatar_url: user.user_metadata?.avatar_url || null,
+    });
   }
   return true;
 };

@@ -514,13 +514,103 @@ const ResetPasswordScreen: React.FC<{
   );
 };
 
+const VerifyScreen: React.FC<{
+  email: string;
+  onResend: () => void;
+  onModeChange: (mode: any) => void;
+  resending: boolean;
+}> = ({ email, onResend, onModeChange, resending }) => {
+  const { refreshVerificationStatus, showToast } = useApp();
+  const [checking, setChecking] = useState(false);
+  const navigate = useNavigate();
+
+  const handleCheck = async () => {
+    setChecking(true);
+    try {
+      const isVerified = await refreshVerificationStatus();
+      if (isVerified) {
+        showToast('success', 'Email verified! Welcome to Mzansi Videos');
+        navigate('/app');
+      } else {
+        showToast('error', 'Email not verified yet. Please check your inbox.');
+      }
+    } catch (err) {
+      showToast('error', 'Something went wrong. Please try again.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <motion.div
+      key="verify"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="w-full text-center py-8"
+    >
+      <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="absolute inset-0 bg-green-500/10 rounded-full"
+        />
+        <Mail className="w-12 h-12 text-green-500" />
+      </div>
+      <h1 className="text-3xl font-bold mb-4">Check your Email!</h1>
+      <p className="text-gray-400 mb-8 px-6 text-lg leading-relaxed">
+        We've sent a special verification link to:<br />
+        <span className="text-orange-500 font-bold block mt-2 text-xl">{email}</span>
+      </p>
+      <div className="space-y-4 px-4">
+        <button
+          onClick={handleCheck}
+          disabled={checking}
+          className="w-full bg-white text-black py-4 rounded-xl font-semibold hover:bg-gray-200 transition-all active:scale-[0.98] flex items-center justify-center shadow-lg"
+        >
+          {checking ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Checking status...
+            </>
+          ) : (
+            'I have verified'
+          )}
+        </button>
+
+        <button
+          onClick={onResend}
+          disabled={resending || checking}
+          className="w-full bg-orange-500/20 text-orange-500 py-4 rounded-xl font-semibold hover:bg-orange-500/30 transition-all disabled:opacity-50 flex items-center justify-center border border-orange-500/30"
+        >
+          {resending ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Sending...
+            </>
+          ) : (
+            'Resend Verification Email'
+          )}
+        </button>
+        <button
+          onClick={() => onModeChange('login')}
+          className="w-full text-gray-500 py-2 font-medium hover:text-gray-300 transition-all"
+        >
+          Back to Login
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
 const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showToast } = useToast();
   const { language } = useApp();
   const isResetMode = searchParams.get('reset') === 'true';
-  const [mode, setMode] = useState<'welcome' | 'login' | 'signup' | 'forgot' | 'reset'>(isResetMode ? 'reset' : 'welcome');
+  const [mode, setMode] = useState<'welcome' | 'login' | 'signup' | 'forgot' | 'reset' | 'verify'>(isResetMode ? 'reset' : 'welcome');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [resendVisible, setResendVisible] = useState(false);
@@ -546,9 +636,10 @@ const AuthScreen: React.FC = () => {
       await signIn({ email: trimmedEmail, password: formData.password });
       showToast('success', 'Welcome back!');
       navigate('/app');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Login failed';
-      if (message.includes('Email not confirmed')) {
+    } catch (err: any) {
+      console.error('Login error:', err);
+      const message = err.message || 'Login failed';
+      if (message.toLowerCase().includes('confirm') || message.toLowerCase().includes('verify')) {
         setResendVisible(true);
         showToast('error', 'Please confirm your email before signing in.');
       } else {
@@ -600,19 +691,23 @@ const AuthScreen: React.FC = () => {
         language: language || 'en',
       });
 
-      trackSignup('email');
-
-      if (authData?.user && !authData.session) {
-        showToast('success', 'Account created! Please check your email to confirm your account.');
-        setMode('login');
-      } else {
+      if (authData?.session) {
         showToast('success', 'Account created! Welcome to Mzansi Videos!');
         navigate('/app');
+      } else {
+        showToast('success', 'Verification email sent! Check your inbox.');
+        setMode('verify');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Signup error:', err);
-      captureError(err instanceof Error ? err : new Error(String(err)), { method: 'email_signup' });
-      showToast('error', err instanceof Error ? err.message : 'Signup failed. Please try again.');
+      captureError(err instanceof Error ? err : new Error(String(err)), { method: 'signup' });
+      
+      let message = err.message || 'Signup failed. Please try again.';
+      if (message.includes('already registered') || message.includes('taken')) {
+        message = 'This email or username is already in use.';
+      }
+      
+      showToast('error', message);
     } finally {
       setIsLoading(false);
     }
@@ -662,7 +757,7 @@ const AuthScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white p-6 overflow-x-hidden">
       <div className="max-w-md mx-auto min-h-[600px] flex flex-col items-center justify-center">
-<AnimatePresence mode="wait">
+        <AnimatePresence mode="wait">
           {mode === 'welcome' && <WelcomeScreen key="welcome" onModeChange={setMode} />}
           {mode === 'login' && (
             <LoginScreen key="login"
@@ -678,7 +773,7 @@ const AuthScreen: React.FC = () => {
               onResend={handleResend}
             />
           )}
-{mode === 'signup' && (
+          {mode === 'signup' && (
             <SignupScreen key="signup"
               formData={formData}
               setFormData={setFormData}
@@ -689,7 +784,7 @@ const AuthScreen: React.FC = () => {
               setShowPassword={setShowPassword}
             />
           )}
-{mode === 'forgot' && (
+          {mode === 'forgot' && (
             <ForgotPasswordScreen key="forgot"
               formData={formData}
               setFormData={setFormData}
@@ -698,7 +793,7 @@ const AuthScreen: React.FC = () => {
               onModeChange={setMode}
             />
           )}
-{mode === 'reset' && (
+          {mode === 'reset' && (
             <ResetPasswordScreen key="reset"
               formData={formData}
               setFormData={setFormData}
@@ -706,6 +801,14 @@ const AuthScreen: React.FC = () => {
               onUpdate={handleResetPassword}
               showPassword={showPassword}
               setShowPassword={setShowPassword}
+            />
+          )}
+          {mode === 'verify' && (
+            <VerifyScreen key="verify"
+              email={formData.email}
+              onResend={handleResend}
+              onModeChange={setMode}
+              resending={resending}
             />
           )}
         </AnimatePresence>

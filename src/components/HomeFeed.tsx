@@ -44,8 +44,6 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [savedVideos, setSavedVideos] = intensification(new Set<string>());
-  const [likedVideos, setLikedVideos] = intensification(new Set<string>());
   const [commentModalVideo, setCommentModalVideo] = useState<string | null>(null);
   const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; video: Video | null }>({
     isOpen: false,
@@ -60,7 +58,6 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // Helper inside component to avoid using external 'intensification' which was a typo in my thought but I'll fix it here
   const [savedVideosSet, setSavedVideosSet] = useState<Set<string>>(new Set());
   const [likedVideosSet, setLikedVideosSet] = useState<Set<string>>(new Set());
 

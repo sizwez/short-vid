@@ -33,8 +33,8 @@ const AppContent = () => {
           <motion.div
             key="splash"
             initial={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
             className="fixed inset-0 z-[100]"
           >
             <SplashScreen />
@@ -42,20 +42,23 @@ const AppContent = () => {
         )}
       </AnimatePresence>
 
-      <Suspense fallback={<FallbackSpinner />}>
-        <Routes>
-          <Route 
-            path="/" 
-            element={
-              isLoading ? <div className="h-screen bg-black" /> : 
-              isAuthenticated ? <Navigate to="/app" replace /> : <Navigate to="/onboarding" replace />
-            } 
-          />
-          <Route path="/features" element={<FeatureCarousel />} />
-          <Route path="/onboarding/*" element={<OnboardingFlow />} />
-          <Route path="/app/*" element={<MainApp />} />
-        </Routes>
-      </Suspense>
+      {/* Only render routes after loading is complete to prevent redirect flicker.
+          The splash screen covers the UI during loading anyway, so there's no visual gap. */}
+      {!isLoading && (
+        <Suspense fallback={<FallbackSpinner />}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                isAuthenticated ? <Navigate to="/app" replace /> : <Navigate to="/onboarding" replace />
+              }
+            />
+            <Route path="/features" element={<FeatureCarousel />} />
+            <Route path="/onboarding/*" element={<OnboardingFlow />} />
+            <Route path="/app/*" element={<MainApp />} />
+          </Routes>
+        </Suspense>
+      )}
     </div>
   );
 };
@@ -64,7 +67,7 @@ function App() {
   return (
     <AppProvider>
       <ToastProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AppContent />
         </Router>
       </ToastProvider>

@@ -1,0 +1,32 @@
+{
+  "name": "Mzansi Videos",
+  "short_name": "Mzansi",
+  "description": "South Africa's trending short video platform.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "Upload",
+      "url": "/app/upload",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

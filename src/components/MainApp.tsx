@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNavigation from './BottomNavigation';
@@ -31,15 +32,15 @@ const RouteFallback = () => (
 
 const CameraRecorderWrapper: React.FC = () => {
   const navigate = useNavigate();
-  
+
   const handleVideoRecorded = (file: File, previewUrl: string) => {
     navigate('/app/upload', { state: { file, previewUrl } });
   };
-  
+
   const handleClose = () => {
     navigate('/app');
   };
-  
+
   return <CameraRecorder onVideoRecorded={handleVideoRecorded} onClose={handleClose} />;
 };
 
@@ -58,7 +59,7 @@ const MainApp: React.FC = () => {
     initializeFCMForUser(user.id).catch(console.error);
 
     const channel = supabase.channel(`user_inbox:${user.id}`);
-    
+
     channel
       .on('broadcast', { event: 'signal' }, ({ payload }: any) => {
         if (payload.to === user.id && payload.type === 'offer') {
@@ -81,7 +82,7 @@ const MainApp: React.FC = () => {
   return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
       <NetworkStatusBanner />
-      
+
       <main className="relative z-10 w-full min-h-screen">
         <ErrorBoundary>
           <Suspense fallback={<RouteFallback />}>
@@ -114,7 +115,7 @@ const MainApp: React.FC = () => {
         </ErrorBoundary>
 
         {activeCall && (
-          <VideoCall 
+          <VideoCall
             recipientId={activeCall.recipientId}
             isIncoming={activeCall.isIncoming}
             initialOffer={activeCall.initialOffer}

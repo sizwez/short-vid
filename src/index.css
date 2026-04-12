@@ -168,7 +168,7 @@ input, textarea, button {
 }
 
 video {
-  object-fit: contain;
+  object-fit: cover;
 }
 
 video::-webkit-media-controls-panel {

@@ -10,6 +10,12 @@ export default defineConfig({
       }
     }
   },
+  resolve: {
+    alias: {
+      events: 'events',
+      util: 'util',
+    }
+  },
   plugins: [
     react()
   ],
