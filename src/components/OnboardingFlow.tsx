@@ -520,7 +520,8 @@ const VerifyScreen: React.FC<{
   onModeChange: (mode: any) => void;
   resending: boolean;
 }> = ({ email, onResend, onModeChange, resending }) => {
-  const { refreshVerificationStatus, showToast } = useApp();
+  const { refreshVerificationStatus } = useApp();
+  const { showToast } = useToast();
   const [checking, setChecking] = useState(false);
   const navigate = useNavigate();
 
