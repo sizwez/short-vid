@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect, lazy } from 'react';
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNavigation from './BottomNavigation';
@@ -10,18 +10,18 @@ import { useApp } from '../hooks/useApp';
 import { initializeFCMForUser } from '../lib/fcmService';
 
 // Lazy loaded components for code splitting
-const HomeFeed = React.lazy(() => import('./HomeFeed'));
-const UploadFlow = React.lazy(() => import('./UploadFlow'));
-const Profile = React.lazy(() => import('./Profile'));
-const Challenges = React.lazy(() => import('./Challenges'));
-const Notifications = React.lazy(() => import('./Notifications'));
-const Settings = React.lazy(() => import('./Settings'));
-const PaymentFlow = React.lazy(() => import('./PaymentFlow'));
-const CreatorDashboard = React.lazy(() => import('./CreatorDashboard'));
-const Search = React.lazy(() => import('./Search'));
-const Messages = React.lazy(() => import('./Messages'));
-const VideoPlayer = React.lazy(() => import('./VideoPlayer'));
-const CameraRecorder = React.lazy(() => import('./CameraRecorder'));
+const HomeFeed = lazy(() => import('./HomeFeed'));
+const UploadFlow = lazy(() => import('./UploadFlow'));
+const Profile = lazy(() => import('./Profile'));
+const Challenges = lazy(() => import('./Challenges'));
+const Notifications = lazy(() => import('./Notifications'));
+const Settings = lazy(() => import('./Settings'));
+const PaymentFlow = lazy(() => import('./PaymentFlow'));
+const CreatorDashboard = lazy(() => import('./CreatorDashboard'));
+const Search = lazy(() => import('./Search'));
+const Messages = lazy(() => import('./Messages'));
+const VideoPlayer = lazy(() => import('./VideoPlayer'));
+const CameraRecorder = lazy(() => import('./CameraRecorder'));
 
 // Reusable Suspense fallback UI for lazy routes wrapper
 const RouteFallback = () => (
@@ -47,13 +47,13 @@ const CameraRecorderWrapper: React.FC = () => {
 const MainApp: React.FC = () => {
   const { user } = useApp();
   const location = useLocation();
-  const [activeCall, setActiveCall] = React.useState<{
+  const [activeCall, setActiveCall] = useState<{
     recipientId: string;
     isIncoming: boolean;
     initialOffer?: any;
   } | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) return;
 
     initializeFCMForUser(user.id).catch(console.error);
