@@ -704,8 +704,12 @@ const AuthScreen: React.FC = () => {
       captureError(err instanceof Error ? err : new Error(String(err)), { method: 'signup' });
       
       let message = err.message || 'Signup failed. Please try again.';
-      if (message.includes('already registered') || message.includes('taken')) {
-        message = 'This email or username is already in use.';
+      
+      // Specifically handle common auth errors but keep the original message for others
+      if (message.includes('already registered')) {
+        message = 'This email is already in use. Please try signing in instead.';
+      } else if (message.includes('taken')) {
+        message = 'This username is already taken. Please try another one.';
       }
       
       showToast('error', message);

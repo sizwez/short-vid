@@ -54,18 +54,17 @@ export const signUp = async (data: SignUpData) => {
   if (signUpError) throw signUpError;
   if (!authData.user) throw new Error('Sign up failed: No user returned');
 
-  // 2. Profile is automatically created via DB trigger if you set it up,
-  // but here we'll do it manually to ensure consistency with existing code
+  // 2. Profile creation with upsert to be resilient
   const { error: profileError } = await supabase
     .from('users')
-    .insert({
+    .upsert({
       id: authData.user.id,
       username: data.username.replace('@', ''),
       display_name: data.displayName,
       email: data.email,
       bio: 'New to Mzansi Videos',
       language: data.language || 'en',
-    });
+    }, { onConflict: 'id' });
 
   if (profileError) {
     console.error('Profile creation error during signup:', profileError);
