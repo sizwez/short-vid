@@ -3,9 +3,10 @@
  * Generates a thumbnail image from a video file at a specific time.
  * @param file The video file
  * @param seekTime Time in seconds to capture (default 1s)
+ * @param maxWidth Optional maximum width for the thumbnail (to optimize size)
  * @returns A Blob of the generated thumbnail image (image/jpeg)
  */
-export const generateVideoThumbnail = (file: File, seekTime: number = 1): Promise<Blob> => {
+export const generateVideoThumbnail = (file: File, seekTime: number = 1, maxWidth: number = 640): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
@@ -23,14 +24,23 @@ export const generateVideoThumbnail = (file: File, seekTime: number = 1): Promis
 
     video.onseeked = () => {
       try {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        // Calculate dimensions to maintain aspect ratio
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+        
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           throw new Error('Could not get canvas context');
         }
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, width, height);
         
         canvas.toBlob((blob) => {
           URL.revokeObjectURL(url);
@@ -39,7 +49,7 @@ export const generateVideoThumbnail = (file: File, seekTime: number = 1): Promis
           } else {
             reject(new Error('Canvas toBlob failed'));
           }
-        }, 'image/jpeg', 0.8);
+        }, 'image/jpeg', 0.7); // Slightly lower quality for faster upload
       } catch (err) {
         URL.revokeObjectURL(url);
         reject(err);

@@ -318,38 +318,35 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
       }
 
       setUploadProgress(1);
-      const fileExt = videoFile.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = fileName;
-
-
-      console.log('UploadFlow: Starting Firebase Upload...');
       
-      // 1. Generate Thumbnail
-      console.log('UploadFlow: Generating thumbnail...');
-      let thumbnailUrl = '';
-      try {
-        const thumbnailBlob = await generateVideoThumbnail(videoFile);
-        const thumbRef = ref(storage, `thumbnails/${user.id}/${Date.now()}_thumb.jpg`);
-        const thumbSnapshot = await uploadBytes(thumbRef, thumbnailBlob);
-        thumbnailUrl = await getDownloadURL(thumbSnapshot.ref);
-        console.log('UploadFlow: Thumbnail uploaded:', thumbnailUrl);
-      } catch (thumbErr) {
-        console.error('Error generating/uploading thumbnail:', thumbErr);
-        // We continue even if thumbnail fails
-      }
+      console.log('UploadFlow: Starting parallel upload tasks...');
 
-      // 2. Upload Video
+      // 1. Start Thumbnail Task (Concurrent)
+      const thumbnailPromise = (async () => {
+        try {
+          console.log('UploadFlow: Generating/Uploading thumbnail...');
+          const thumbnailBlob = await generateVideoThumbnail(videoFile);
+          const thumbRef = ref(storage, `thumbnails/${user.id}/${Date.now()}_thumb.jpg`);
+          const thumbSnapshot = await uploadBytes(thumbRef, thumbnailBlob);
+          const url = await getDownloadURL(thumbSnapshot.ref);
+          console.log('UploadFlow: Thumbnail ready:', url);
+          return url;
+        } catch (thumbErr) {
+          console.error('Error generating/uploading thumbnail:', thumbErr);
+          return ''; // Fallback to empty string if thumbnail fails
+        }
+      })();
+
+      // 2. Start Video Upload Task
       const storageRef = ref(storage, `videos/${user.id}/${Date.now()}_${videoFile.name}`);
       const uploadTask = uploadBytesResumable(storageRef, videoFile);
 
-      const downloadUrl = await new Promise<string>((resolve, reject) => {
+      const downloadUrlPromise = new Promise<string>((resolve, reject) => {
         uploadTask.on(
           'state_changed',
           (snapshot) => {
             const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
             setUploadProgress(progress);
-            console.log(`Upload Progress: ${progress}%`);
           },
           (error) => {
             console.error('Firebase upload error:', error);
@@ -362,8 +359,13 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
         );
       });
 
+      // Wait for both tasks to complete
+      const [thumbnailUrl, publicUrl] = await Promise.all([
+        thumbnailPromise,
+        downloadUrlPromise
+      ]);
+
       setUploadProgress(99);
-      const publicUrl = downloadUrl;
 
       const videoInsertData: any = {
         user_id: user.id,
