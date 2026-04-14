@@ -5,28 +5,11 @@ import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContainer';
 import { moderateVideoUpload } from '../lib/moderation';
 import VideoTrim from './VideoTrim';
-
-interface VideoData {
-  title: string;
-  description: string;
-  hashtags: string;
-  file: File | null;
-  previewUrl: string | null;
-  replyToVideoId?: string | null;
-  replyToVideo?: {
-    id: string;
-    title: string;
-    video_url: string;
-    users: {
-      username: string;
-      display_name: string;
-    } | null;
-  } | null;
-}
+import { useUpload } from '../context/UploadContext';
 
 interface UploadVideoProps {
-  data: VideoData;
-  updateData: (data: Partial<VideoData>) => void;
+  data: any;
+  updateData: (data: Partial<any>) => void;
 }
 
 const UploadVideo: React.FC<UploadVideoProps> = ({ data, updateData }) => {
@@ -235,106 +218,183 @@ const UploadVideo: React.FC<UploadVideoProps> = ({ data, updateData }) => {
   );
 };
 
-
 interface UploadSettingsProps {
-  data: VideoData;
-  updateData: (data: Partial<VideoData>) => void;
-  allowComments: boolean;
-  setAllowComments: (val: boolean) => void;
-  allowDuet: boolean;
-  setAllowDuet: (val: boolean) => void;
-  allowStitch: boolean;
-  setAllowStitch: (val: boolean) => void;
+  data: any;
+  updateData: (data: Partial<any>) => void;
+  isPosting: boolean;
+  setIsPosting: (val: boolean) => void;
+  uploadProgress: number;
+  setUploadProgress: (val: number) => void;
+  resetUpload: () => void;
+}
+
+// Module-level flag that survives React state resets and HMR
+let _uploadActive = false;
+
+/**
+ * Uploads a file to Supabase Storage using XMLHttpRequest directly.
+ * This bypasses the Supabase JS SDK's internal AbortController which
+ * causes "signal is aborted without reason" errors during long uploads.
+ */
+function uploadFileWithXHR(
+  supabaseUrl: string,
+  bucket: string,
+  filePath: string,
+  file: File,
+  accessToken: string,
+  anonKey: string,
+  onProgress: (percent: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
+
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    xhr.setRequestHeader('apikey', anonKey);
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.setRequestHeader('cache-control', 'max-age=3600');
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onProgress(percent);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        let msg = `Upload failed (HTTP ${xhr.status})`;
+        try {
+          const body = JSON.parse(xhr.responseText);
+          msg = body.message || body.error || msg;
+        } catch (_) { /* ignore parse errors */ }
+        reject(new Error(msg));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.ontimeout = () => reject(new Error('Upload timed out'));
+
+    // Send as the raw file (application/octet-stream style via FormData)
+    const formData = new FormData();
+    formData.append('', file, filePath); // Supabase expects empty-string key
+    xhr.send(formData);
+  });
 }
 
 const UploadSettings: React.FC<UploadSettingsProps> = ({ 
   data, 
   updateData, 
-  allowComments, 
-  setAllowComments, 
-  allowDuet, 
-  setAllowDuet, 
-  allowStitch, 
-  setAllowStitch 
+  isPosting, 
+  setIsPosting, 
+  uploadProgress, 
+  setUploadProgress,
+  resetUpload
 }) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [isPosting, setIsPosting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [allowComments, setAllowComments] = useState(true);
+  const [allowDuet, setAllowDuet] = useState(true);
+  const [allowStitch, setAllowStitch] = useState(true);
 
-  const cleanup = () => {
-    if (data.previewUrl) {
-      URL.revokeObjectURL(data.previewUrl);
+  // Redirect back if file state is lost — but NOT during an active upload
+  useEffect(() => {
+    if (!data.file && !isPosting && !_uploadActive) {
+      console.warn('UploadFlow: State lost or file missing. Redirecting to upload root.');
+      navigate('/app/upload', { replace: true });
     }
-  };
+  }, [data.file, navigate, isPosting]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isPosting || _uploadActive) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isPosting]);
 
   const handlePost = async () => {
-    if (!data.file) return;
+    if (isPosting || _uploadActive) return;
+    if (!data.file) {
+      showToast('error', 'Video file is missing.');
+      navigate('/app/upload');
+      return;
+    }
 
+    // Capture the file in a local variable so HMR state resets can't null it
+    const videoFile = data.file;
+    const videoTitle = data.title;
+    const videoDescription = data.description;
+    const videoHashtags = data.hashtags;
+    const videoReplyToId = data.replyToVideoId;
+
+    console.log('UploadFlow: Starting post process...');
     setIsPosting(true);
-    try {
-      // Check if user is authenticated
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+    _uploadActive = true;
 
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
-        showToast('error', 'Please login to upload videos');
+        showToast('error', 'Please login to upload');
         navigate('/onboarding/auth');
         return;
       }
 
-      const hashtagsArray = data.hashtags
-        .split(/[\s,#]+/)
-        .filter(tag => tag.length > 0)
-        .map(tag => tag.replace(/^#/, '').toLowerCase());
+      // Get a fresh access token for the XHR request
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        showToast('error', 'Session expired. Please login again.');
+        navigate('/onboarding/auth');
+        return;
+      }
 
-      const moderationResult = moderateVideoUpload(
-        data.title,
-        data.description,
-        hashtagsArray
-      );
+      const hashtagsArray = videoHashtags.split(/[\s,#]+/).filter((tag: string) => tag.length > 0).map((tag: string) => tag.replace(/^#/, '').toLowerCase());
+      const moderationResult = moderateVideoUpload(videoTitle, videoDescription, hashtagsArray);
 
       if (!moderationResult.isAllowed) {
         showToast('error', moderationResult.reason || 'Content not allowed');
         setIsPosting(false);
+        _uploadActive = false;
         return;
       }
 
-      setUploadProgress(20);
-
-      // 1. Upload video to Storage
-      const fileExt = data.file.name.split('.').pop();
+      setUploadProgress(1);
+      const fileExt = videoFile.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = fileName;
 
-      // Simulated progress since Supabase JS client v2 doesn't have an easy progress callback for standard uploads without XHR
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 500);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(filePath, data.file);
+      console.log('UploadFlow: Starting XHR Upload...');
+      await uploadFileWithXHR(
+        supabaseUrl,
+        'videos',
+        filePath,
+        videoFile,
+        accessToken,
+        anonKey,
+        (percent) => {
+          setUploadProgress(percent);
+          console.log(`Upload Progress: ${percent}%`);
+        }
+      );
+      
+      setUploadProgress(99); 
+      const { data: { publicUrl } } = supabase.storage.from('videos').getPublicUrl(filePath);
 
-      clearInterval(progressInterval);
-      if (uploadError) throw uploadError;
-      setUploadProgress(95);
-
-      // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('videos')
-        .getPublicUrl(filePath);
-
-      // 4. Insert Metadata to Database with user_id and privacy settings
-      const videoData: Record<string, unknown> = {
+      const videoInsertData: any = {
         user_id: user.id,
-        title: data.title,
-        caption: data.description,
+        title: videoTitle,
+        caption: videoDescription,
         video_url: publicUrl,
         hashtags: hashtagsArray,
         likes: 0,
@@ -350,26 +410,23 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
         created_at: new Date().toISOString()
       };
 
-      if (data.replyToVideoId) {
-        videoData.reply_to_video_id = data.replyToVideoId;
+      if (videoReplyToId) {
+        videoInsertData.reply_to_video_id = videoReplyToId;
       }
 
-      const { error: dbError } = await supabase
-        .from('videos')
-        .insert([videoData]);
-
+      const { error: dbError } = await supabase.from('videos').insert([videoInsertData]);
       if (dbError) throw dbError;
+      
       setUploadProgress(100);
-
-      showToast('success', 'Video uploaded successfully!');
-      cleanup();
+      showToast('success', 'Video posted successfully!');
+      resetUpload();
       navigate('/app');
-
-    } catch (err) {
-      console.error('Upload failed:', err);
-      showToast('error', `Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } catch (err: any) {
+      console.error('UploadFlow failure:', err);
+      showToast('error', `Upload failed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsPosting(false);
+      _uploadActive = false;
     }
   };
 
@@ -377,18 +434,9 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
     <div className="min-h-screen bg-black text-white p-6">
       <div className="max-w-md mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => navigate('..')}
-            className="p-2"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+          <button onClick={() => navigate('..')} className="p-2"><ArrowLeft className="w-6 h-6" /></button>
           <h1 className="text-xl font-semibold">Upload Settings</h1>
-          <button
-            onClick={handlePost}
-            disabled={isPosting}
-            className="text-orange-500 font-medium disabled:text-gray-500"
-          >
+          <button onClick={handlePost} disabled={isPosting || _uploadActive} className="text-orange-500 font-medium disabled:text-gray-500">
             {isPosting ? 'Posting...' : 'Post'}
           </button>
         </div>
@@ -399,54 +447,32 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
             <div className="space-y-3">
               <label className="flex items-center justify-between">
                 <span>Allow comments</span>
-                <input
-                  type="checkbox"
-                  checked={allowComments}
-                  onChange={(e) => setAllowComments(e.target.checked)}
-                  className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
-                />
+                <input type="checkbox" checked={allowComments} onChange={(e) => setAllowComments(e.target.checked)} className="w-5 h-5 text-orange-500 rounded" />
               </label>
               <label className="flex items-center justify-between">
                 <span>Allow duet</span>
-                <input
-                  type="checkbox"
-                  checked={allowDuet}
-                  onChange={(e) => setAllowDuet(e.target.checked)}
-                  className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
-                />
+                <input type="checkbox" checked={allowDuet} onChange={(e) => setAllowDuet(e.target.checked)} className="w-5 h-5 text-orange-500 rounded" />
               </label>
               <label className="flex items-center justify-between">
                 <span>Allow stitch</span>
-                <input
-                  type="checkbox"
-                  checked={allowStitch}
-                  onChange={(e) => setAllowStitch(e.target.checked)}
-                  className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
-                />
+                <input type="checkbox" checked={allowStitch} onChange={(e) => setAllowStitch(e.target.checked)} className="w-5 h-5 text-orange-500 rounded" />
               </label>
             </div>
           </div>
 
-          {isPosting && (
+          {(isPosting || _uploadActive) && (
             <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">Uploading Video...</span>
                 <span className="text-orange-500 font-bold">{uploadProgress}%</span>
               </div>
               <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-orange-500 h-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
+                <div className="bg-orange-500 h-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
               </div>
             </div>
           )}
 
-          <button
-            onClick={handlePost}
-            disabled={isPosting}
-            className="w-full bg-orange-500 text-white py-4 rounded-xl font-semibold hover:bg-orange-600 transition-colors disabled:bg-gray-700 disabled:cursor-not-allowed"
-          >
+          <button onClick={handlePost} disabled={isPosting || _uploadActive} className="w-full bg-orange-500 text-white py-4 rounded-xl font-semibold hover:bg-orange-600 transition-colors disabled:bg-gray-700">
             {isPosting ? 'Uploading Video...' : 'Post Video'}
           </button>
         </div>
@@ -459,28 +485,11 @@ const UploadFlow: React.FC = () => {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const replyToId = searchParams.get('reply_to');
-  const [videoData, setVideoData] = useState<VideoData>({
-    title: '',
-    description: '',
-    hashtags: '',
-    file: null,
-    previewUrl: null,
-    replyToVideoId: replyToId || null,
-    replyToVideo: null
-  });
+  const { videoData, updateVideoData, isPosting, setIsPosting, uploadProgress, setUploadProgress, resetUpload } = useUpload();
 
   useEffect(() => {
-    if (location.state?.file && location.state?.previewUrl) {
-      setVideoData(prev => ({
-        ...prev,
-        file: location.state.file,
-        previewUrl: location.state.previewUrl
-      }));
-    }
-  }, [location.state]);
-
-  useEffect(() => {
-    if (replyToId) {
+    if (replyToId && !videoData.replyToVideoId) {
+      updateVideoData({ replyToVideoId: replyToId });
       fetchReplyToVideo(replyToId);
     }
   }, [replyToId]);
@@ -489,56 +498,32 @@ const UploadFlow: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('videos')
-        .select(`
-          id,
-          title,
-          video_url,
-          users:user_id (
-            username,
-            display_name
-          )
-        `)
+        .select('id, title, video_url, users:user_id (username, display_name)')
         .eq('id', videoId)
         .single();
-
       if (error) throw error;
-
-      const processedData = {
-        ...data,
-        users: Array.isArray(data.users) ? data.users[0] : data.users
-      };
-
-      setVideoData(prev => ({ ...prev, replyToVideo: processedData }));
+      updateVideoData({ replyToVideo: data });
     } catch (err) {
       console.error('Error fetching reply video:', err);
     }
   };
 
-  const updateData = (newData: Partial<VideoData>) => {
-    setVideoData(prev => ({ ...prev, ...newData }));
-  };
-
-  const [allowComments, setAllowComments] = useState(true);
-  const [allowDuet, setAllowDuet] = useState(true);
-  const [allowStitch, setAllowStitch] = useState(true);
-
   return (
     <Routes>
-      <Route path="/" element={<UploadVideo data={videoData} updateData={updateData} />} />
+      <Route path="/" element={<UploadVideo data={videoData} updateData={updateVideoData} />} />
       <Route path="/settings" element={
         <UploadSettings 
           data={videoData} 
-          updateData={updateData}
-          allowComments={allowComments}
-          setAllowComments={setAllowComments}
-          allowDuet={allowDuet}
-          setAllowDuet={setAllowDuet}
-          allowStitch={allowStitch}
-          setAllowStitch={setAllowStitch}
+          updateData={updateVideoData}
+          isPosting={isPosting}
+          setIsPosting={setIsPosting}
+          uploadProgress={uploadProgress}
+          setUploadProgress={setUploadProgress}
+          resetUpload={resetUpload}
         />
       } />
     </Routes>
   );
 };
 
-export default UploadFlow;
+export default UploadFlow;
