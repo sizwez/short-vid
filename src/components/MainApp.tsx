@@ -13,10 +13,22 @@ import { UploadProvider, useUpload } from '../context/UploadContext';
 // Lazy loaded components for code splitting
 const HomeFeed = lazy(() => import('./HomeFeed'));
 const UploadFlow = lazy(() => import('./UploadFlow'));
-// ... (rest of lazy imports)
+const Profile = lazy(() => import('./Profile'));
+const Challenges = lazy(() => import('./Challenges'));
+const Notifications = lazy(() => import('./Notifications'));
+const Settings = lazy(() => import('./Settings'));
+const PaymentFlow = lazy(() => import('./PaymentFlow'));
+const CreatorDashboard = lazy(() => import('./CreatorDashboard'));
+const Search = lazy(() => import('./Search'));
+const Messages = lazy(() => import('./Messages'));
+const VideoPlayer = lazy(() => import('./VideoPlayer'));
+const CameraRecorder = lazy(() => import('./CameraRecorder'));
 
+// Reusable Suspense fallback UI for lazy routes wrapper
 const RouteFallback = () => (
-// ... (omitted)
+  <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)]">
+    <div className="w-10 h-10 rounded-full border-4 border-orange-500 border-t-transparent animate-spin opacity-50" />
+  </div>
 );
 
 const CameraRecorderWrapper: React.FC = () => {
