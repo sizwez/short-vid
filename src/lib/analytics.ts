@@ -11,7 +11,7 @@ export const initGA = () => {
             if (import.meta.env.DEV) console.warn("GA initialization failed:", e);
         }
     } else {
-        if (import.meta.env.DEV) console.warn("GA Measurement ID not valid or not found. Analytics disabled.");
+        if (import.meta.env.DEV) console.info("GA Measurement ID not found. Analytics disabled (this is normal in development).");
     }
 };
 

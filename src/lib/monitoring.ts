@@ -25,7 +25,7 @@ export const initMonitoring = () => {
             if (import.meta.env.DEV) console.warn("Sentry initialization failed:", e);
         }
     } else {
-        if (import.meta.env.DEV) console.warn("Sentry DSN not valid. Monitoring disabled.");
+        if (import.meta.env.DEV) console.info("Sentry DSN not found. Monitoring disabled (this is normal in development).");
     }
 };
 

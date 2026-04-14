@@ -830,6 +830,7 @@ const AuthScreen: React.FC = () => {
         </AnimatePresence>
       </div>
     </div>
+    </PremiumBackground>
   );
 };
 

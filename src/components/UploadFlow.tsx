@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Upload, ArrowLeft, Hash, X, Camera, Scissors } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { storage } from '../firebase.config';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from './ToastContainer';
 import { moderateVideoUpload } from '../lib/moderation';
 import VideoTrim from './VideoTrim';
 import { useUpload } from '../context/UploadContext';
+import { generateVideoThumbnail } from '../lib/videoUtils';
+import { uploadBytes } from 'firebase/storage';
 
 interface UploadVideoProps {
   data: any;
@@ -20,7 +24,7 @@ const UploadVideo: React.FC<UploadVideoProps> = ({ data, updateData }) => {
 
   const handleVideoSelect = (file: File) => {
     // Validate video file
-    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB (Supported by Firebase)
     const ALLOWED_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/3gpp'];
 
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -29,7 +33,7 @@ const UploadVideo: React.FC<UploadVideoProps> = ({ data, updateData }) => {
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      showToast('error', 'Video file is too large. Maximum size is 100MB.');
+      showToast('error', 'Video file is too large. Maximum size is 200MB.');
       return;
     }
 
@@ -231,59 +235,6 @@ interface UploadSettingsProps {
 // Module-level flag that survives React state resets and HMR
 let _uploadActive = false;
 
-/**
- * Uploads a file to Supabase Storage using XMLHttpRequest directly.
- * This bypasses the Supabase JS SDK's internal AbortController which
- * causes "signal is aborted without reason" errors during long uploads.
- */
-function uploadFileWithXHR(
-  supabaseUrl: string,
-  bucket: string,
-  filePath: string,
-  file: File,
-  accessToken: string,
-  anonKey: string,
-  onProgress: (percent: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const url = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
-
-    xhr.open('POST', url, true);
-    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
-    xhr.setRequestHeader('apikey', anonKey);
-    xhr.setRequestHeader('x-upsert', 'false');
-    xhr.setRequestHeader('cache-control', 'max-age=3600');
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        onProgress(percent);
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        let msg = `Upload failed (HTTP ${xhr.status})`;
-        try {
-          const body = JSON.parse(xhr.responseText);
-          msg = body.message || body.error || msg;
-        } catch (_) { /* ignore parse errors */ }
-        reject(new Error(msg));
-      }
-    };
-
-    xhr.onerror = () => reject(new Error('Network error during upload'));
-    xhr.ontimeout = () => reject(new Error('Upload timed out'));
-
-    // Send as the raw file (application/octet-stream style via FormData)
-    const formData = new FormData();
-    formData.append('', file, filePath); // Supabase expects empty-string key
-    xhr.send(formData);
-  });
-}
 
 const UploadSettings: React.FC<UploadSettingsProps> = ({ 
   data, 
@@ -371,31 +322,55 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
       const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = fileName;
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      console.log('UploadFlow: Starting XHR Upload...');
-      await uploadFileWithXHR(
-        supabaseUrl,
-        'videos',
-        filePath,
-        videoFile,
-        accessToken,
-        anonKey,
-        (percent) => {
-          setUploadProgress(percent);
-          console.log(`Upload Progress: ${percent}%`);
-        }
-      );
+      console.log('UploadFlow: Starting Firebase Upload...');
       
-      setUploadProgress(99); 
-      const { data: { publicUrl } } = supabase.storage.from('videos').getPublicUrl(filePath);
+      // 1. Generate Thumbnail
+      console.log('UploadFlow: Generating thumbnail...');
+      let thumbnailUrl = '';
+      try {
+        const thumbnailBlob = await generateVideoThumbnail(videoFile);
+        const thumbRef = ref(storage, `thumbnails/${user.id}/${Date.now()}_thumb.jpg`);
+        const thumbSnapshot = await uploadBytes(thumbRef, thumbnailBlob);
+        thumbnailUrl = await getDownloadURL(thumbSnapshot.ref);
+        console.log('UploadFlow: Thumbnail uploaded:', thumbnailUrl);
+      } catch (thumbErr) {
+        console.error('Error generating/uploading thumbnail:', thumbErr);
+        // We continue even if thumbnail fails
+      }
+
+      // 2. Upload Video
+      const storageRef = ref(storage, `videos/${user.id}/${Date.now()}_${videoFile.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, videoFile);
+
+      const downloadUrl = await new Promise<string>((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            setUploadProgress(progress);
+            console.log(`Upload Progress: ${progress}%`);
+          },
+          (error) => {
+            console.error('Firebase upload error:', error);
+            reject(error);
+          },
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          }
+        );
+      });
+
+      setUploadProgress(99);
+      const publicUrl = downloadUrl;
 
       const videoInsertData: any = {
         user_id: user.id,
         title: videoTitle,
         caption: videoDescription,
         video_url: publicUrl,
+        thumbnail_url: thumbnailUrl,
         hashtags: hashtagsArray,
         likes: 0,
         comments: 0,

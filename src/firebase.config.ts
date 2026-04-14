@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,6 +13,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+const storage = getStorage(app);
+
+export { storage };
 
 export const requestFCMToken = async () => {
   if (!messaging) return null;

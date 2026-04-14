@@ -190,29 +190,49 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   });
 
   const loadProfile = async (authUser: SupabaseUser) => {
+    if (!isMounted.current) return;
     setIsEmailVerified(!!authUser.email_confirmed_at);
 
     try {
-      const profilePromise = getUserProfile(authUser.id);
-      const timeoutPromise = new Promise<null>((resolve) =>
-        setTimeout(() => resolve(null), 5000)
-      );
-
-      const profile = await Promise.race([profilePromise, timeoutPromise]);
+      // Step 1: Try to fetch existing profile
+      let profile = await getUserProfile(authUser.id);
 
       if (!profile) {
-        console.log('No profile found or timeout, auto-creating one…');
-        const newProfile = await ensureProfile(authUser);
-        if (newProfile && isMounted.current) {
-          setUserFromProfile(newProfile);
-        } else if (isMounted.current) {
-          setUser(createFallbackUser(authUser));
-        }
+        console.log('AppContext: No profile found, attempting to create one...');
+        profile = await ensureProfile(authUser);
+      }
+
+      if (profile && isMounted.current) {
+        setUser({
+          id: profile.id,
+          name: profile.display_name || profile.username,
+          username: profile.username,
+          email: profile.email || authUser.email,
+          avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.username}&background=random`,
+          bio: profile.bio || '',
+          followers: profile.followers_count || 0,
+          following: profile.following_count || 0,
+          isCreator: profile.is_creator || false,
+          subscription: profile.subscription || 'free',
+          earnings: profile.earnings || 0,
+          language: profile.language || 'en',
+          notificationsEnabled: profile.notifications_enabled,
+          dataSavingMode: profile.data_saving_mode,
+          isPrivateAccount: profile.is_private_account,
+          allowCommentsOnVideos: profile.allow_comments_on_videos,
+        });
+
+        if (profile.language) setLanguage(profile.language);
+        if (profile.data_saving_mode !== undefined) setDataSavingMode(profile.data_saving_mode);
+        if (profile.notifications_enabled !== undefined) setNotificationsEnabled(profile.notifications_enabled);
+        if (profile.is_private_account !== undefined) setIsPrivateAccount(profile.is_private_account);
+        if (profile.allow_comments_on_videos !== undefined) setAllowCommentsOnVideos(profile.allow_comments_on_videos);
       } else if (isMounted.current) {
-        setUserFromProfile(profile);
+        console.warn('AppContext: Failed to load/create profile, using fallback user.');
+        setUser(createFallbackUser(authUser));
       }
     } catch (err) {
-      console.error('Failed to load profile:', err);
+      console.error('AppContext: Error in loadProfile:', err);
       if (isMounted.current) {
         setUser(createFallbackUser(authUser));
       }
@@ -223,22 +243,28 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     isMounted.current = true;
 
     const initAuth = async () => {
-      const session = await getSession();
-      if (session?.user && isMounted.current) {
-        await loadProfile(session.user);
-      }
-      if (isInitializing.current && isMounted.current) {
-        isInitializing.current = false;
-        setIsLoading(false);
+      try {
+        const session = await getSession();
+        if (session?.user && isMounted.current) {
+          await loadProfile(session.user);
+        }
+      } catch (err) {
+        console.error('AppContext: Auth initialization failed:', err);
+      } finally {
+        if (isMounted.current) {
+          setIsLoading(false);
+          isInitializing.current = false;
+        }
       }
     };
 
     initAuth();
 
     const unsubscribe = onAuthStateChange(async (event, session) => {
+      console.log(`AppContext: Auth state change [${event}]`);
       const authUser = session?.user;
 
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && authUser && isMounted.current) {
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && authUser && isMounted.current) {
         if (!userRef.current || userRef.current.id !== authUser.id) {
           await loadProfile(authUser);
         }
@@ -254,11 +280,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           setAllowCommentsOnVideos(true);
           setNotifications([]);
         }
-      }
-      
-      if (isInitializing.current && isMounted.current) {
-        isInitializing.current = false;
-        setIsLoading(false);
       }
     });
 
