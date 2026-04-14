@@ -7,6 +7,7 @@ import { useToast } from './ToastContainer';
 import { signIn, signUp, resendConfirmationEmail, resetPassword, updatePassword, signInWithGoogle, signInWithApple } from '../services/authService';
 import { trackSignup } from '../lib/analytics';
 import { captureError } from '../lib/monitoring';
+import PremiumBackground from './PremiumBackground';
 
 const languages = [
   { code: 'en', name: 'English', flag: '🇿🇦' },
@@ -27,55 +28,64 @@ const LanguageSelection: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-md mx-auto pt-20">
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
-        >
-          <Globe className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-          <h1 className="text-3xl font-bold mb-4">Choose Your Language</h1>
-          <p className="text-gray-400">Khetha ulimi lwakho / Kies jou taal</p>
-        </motion.div>
+    <PremiumBackground>
+      <div className="min-h-screen text-white p-6">
+        <div className="max-w-md mx-auto pt-20">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-12"
+          >
+            <div className="w-20 h-20 bg-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-orange-500/30 shadow-lg shadow-orange-500/10">
+              <Globe className="w-10 h-10 text-orange-500" />
+            </div>
+            <h1 className="text-3xl font-bold mb-4 tracking-tight">Choose Your Language</h1>
+            <p className="text-gray-400">Khetha ulimi lwakho / Kies jou taal</p>
+          </motion.div>
 
-        <div className="space-y-4 mb-12">
-          {languages.map((lang, index) => (
-            <motion.button
-              key={lang.code}
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => setSelectedLang(lang.code)}
-              className={`w-full p-4 rounded-xl border-2 transition-all ${selectedLang === lang.code
-                ? 'border-orange-500 bg-orange-500/10'
-                : 'border-gray-700 hover:border-gray-600'
-                }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl">{lang.flag}</span>
-                  <span className="text-lg font-medium">{lang.name}</span>
+          <div className="space-y-4 mb-12">
+            {languages.map((lang, index) => (
+              <motion.button
+                key={lang.code}
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                onClick={() => setSelectedLang(lang.code)}
+                className={`w-full p-5 rounded-2xl border-2 transition-all duration-300 ${selectedLang === lang.code
+                  ? 'border-orange-500 bg-orange-500/20 shadow-lg shadow-orange-500/10'
+                  : 'border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10'
+                  }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-3xl filter drop-shadow-md">{lang.flag}</span>
+                    <span className="text-lg font-semibold tracking-wide">{lang.name}</span>
+                  </div>
+                  {selectedLang === lang.code && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                    >
+                      <ChevronRight className="w-6 h-6 text-orange-500" />
+                    </motion.div>
+                  )}
                 </div>
-                {selectedLang === lang.code && (
-                  <ChevronRight className="w-5 h-5 text-orange-500" />
-                )}
-              </div>
-            </motion.button>
-          ))}
-        </div>
+              </motion.button>
+            ))}
+          </div>
 
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          onClick={handleContinue}
-          className="w-full bg-orange-500 text-white py-4 rounded-xl font-semibold text-lg hover:bg-orange-600 transition-colors"
-        >
-          Continue
-        </motion.button>
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            onClick={handleContinue}
+            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-5 rounded-2xl font-bold text-xl shadow-xl shadow-orange-500/20 active:scale-[0.98] transition-all"
+          >
+            Continue
+          </motion.button>
+        </div>
       </div>
-    </div>
+    </PremiumBackground>
   );
 };
 
@@ -760,44 +770,45 @@ const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 overflow-x-hidden">
-      <div className="max-w-md mx-auto min-h-[600px] flex flex-col items-center justify-center">
-        <AnimatePresence mode="wait">
-          {mode === 'welcome' && <WelcomeScreen key="welcome" onModeChange={setMode} />}
-          {mode === 'login' && (
-            <LoginScreen key="login"
-              formData={formData}
-              setFormData={setFormData}
-              isLoading={isLoading}
-              onLogin={handleLogin}
-              onModeChange={setMode}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              resendVisible={resendVisible}
-              resending={resending}
-              onResend={handleResend}
-            />
-          )}
-          {mode === 'signup' && (
-            <SignupScreen key="signup"
-              formData={formData}
-              setFormData={setFormData}
-              isLoading={isLoading}
-              onSignup={handleSignup}
-              onModeChange={setMode}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-            />
-          )}
-          {mode === 'forgot' && (
-            <ForgotPasswordScreen key="forgot"
-              formData={formData}
-              setFormData={setFormData}
-              isLoading={isLoading}
-              onReset={handleForgotPassword}
-              onModeChange={setMode}
-            />
-          )}
+    <PremiumBackground>
+      <div className="min-h-screen text-white p-6 overflow-x-hidden">
+        <div className="max-w-md mx-auto min-h-[600px] flex flex-col items-center justify-center">
+          <AnimatePresence mode="wait">
+            {mode === 'welcome' && <WelcomeScreen key="welcome" onModeChange={setMode} />}
+            {mode === 'login' && (
+              <LoginScreen key="login"
+                formData={formData}
+                setFormData={setFormData}
+                isLoading={isLoading}
+                onLogin={handleLogin}
+                onModeChange={setMode}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                resendVisible={resendVisible}
+                resending={resending}
+                onResend={handleResend}
+              />
+            )}
+            {mode === 'signup' && (
+              <SignupScreen key="signup"
+                formData={formData}
+                setFormData={setFormData}
+                isLoading={isLoading}
+                onSignup={handleSignup}
+                onModeChange={setMode}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+              />
+            )}
+            {mode === 'forgot' && (
+              <ForgotPasswordScreen key="forgot"
+                formData={formData}
+                setFormData={setFormData}
+                isLoading={isLoading}
+                onReset={handleForgotPassword}
+                onModeChange={setMode}
+              />
+            )}
           {mode === 'reset' && (
             <ResetPasswordScreen key="reset"
               formData={formData}

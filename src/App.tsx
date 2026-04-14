@@ -14,12 +14,23 @@ const MainApp = React.lazy(() => import('./components/MainApp'));
 
 // A global fallback spinner class
 const FallbackSpinner = () => (
-  <div className="flex flex-col items-center justify-center h-screen bg-black/95 backdrop-blur-sm z-50">
+  <div className="flex flex-col items-center justify-center h-screen bg-black z-50">
     <div className="relative">
-      <div className="w-16 h-16 rounded-full border-4 border-orange-500/20" />
-      <div className="absolute top-0 left-0 w-16 h-16 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
+      {/* Outer glow */}
+      <div className="absolute inset-0 bg-pink-500/20 blur-2xl rounded-full scale-150 animate-pulse" />
+      
+      <div className="relative glass-card p-8 flex flex-col items-center justify-center border-white/5">
+        <div className="relative w-12 h-12">
+          <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0 rounded-full border-2 border-t-pink-500 border-r-orange-500 border-b-transparent border-l-transparent" 
+          />
+        </div>
+        <p className="mt-6 text-[10px] text-white/40 font-black tracking-[0.3em] uppercase animate-pulse">Mzansi Vibe</p>
+      </div>
     </div>
-    <p className="mt-4 text-gray-500 text-sm animate-pulse font-medium tracking-wider">LOADING...</p>
   </div>
 );
 

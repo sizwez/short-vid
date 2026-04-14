@@ -137,6 +137,47 @@ html, body {
   100% { transform: scale(1); opacity: 0; }
 }
 
+@keyframes meshGradient {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(10%, 10%) rotate(10deg); }
+  66% { transform: translate(-10%, 5%) rotate(-5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes skeletonPulse {
+  0% { opacity: 0.05; }
+  50% { opacity: 0.15; }
+  100% { opacity: 0.05; }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-mesh {
+  animation: meshGradient 15s ease-in-out infinite;
+  will-change: transform;
+}
+
+.skeleton-pulse {
+  background: rgba(255, 255, 255, 1);
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }

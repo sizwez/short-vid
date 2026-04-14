@@ -238,16 +238,35 @@ const UploadVideo: React.FC<UploadVideoProps> = ({ data, updateData }) => {
 
 interface UploadSettingsProps {
   data: VideoData;
+  updateData: (data: Partial<VideoData>) => void;
+  allowComments: boolean;
+  setAllowComments: (val: boolean) => void;
+  allowDuet: boolean;
+  setAllowDuet: (val: boolean) => void;
+  allowStitch: boolean;
+  setAllowStitch: (val: boolean) => void;
 }
 
-const UploadSettings: React.FC<UploadSettingsProps> = ({ data }) => {
+const UploadSettings: React.FC<UploadSettingsProps> = ({ 
+  data, 
+  updateData, 
+  allowComments, 
+  setAllowComments, 
+  allowDuet, 
+  setAllowDuet, 
+  allowStitch, 
+  setAllowStitch 
+}) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [allowComments, setAllowComments] = useState(true);
-  const [allowDuet, setAllowDuet] = useState(true);
-  const [allowStitch, setAllowStitch] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const cleanup = () => {
+    if (data.previewUrl) {
+      URL.revokeObjectURL(data.previewUrl);
+    }
+  };
 
   const handlePost = async () => {
     if (!data.file) return;
@@ -311,7 +330,7 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({ data }) => {
         .from('videos')
         .getPublicUrl(filePath);
 
-      // 4. Insert Metadata to Database with user_id
+      // 4. Insert Metadata to Database with user_id and privacy settings
       const videoData: Record<string, unknown> = {
         user_id: user.id,
         title: data.title,
@@ -325,6 +344,9 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({ data }) => {
         saves: 0,
         is_public: true,
         is_active: true,
+        allow_comments: allowComments,
+        allow_duet: allowDuet,
+        allow_stitch: allowStitch,
         created_at: new Date().toISOString()
       };
 
@@ -340,6 +362,7 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({ data }) => {
       setUploadProgress(100);
 
       showToast('success', 'Video uploaded successfully!');
+      cleanup();
       navigate('/app');
 
     } catch (err) {
@@ -495,10 +518,25 @@ const UploadFlow: React.FC = () => {
     setVideoData(prev => ({ ...prev, ...newData }));
   };
 
+  const [allowComments, setAllowComments] = useState(true);
+  const [allowDuet, setAllowDuet] = useState(true);
+  const [allowStitch, setAllowStitch] = useState(true);
+
   return (
     <Routes>
       <Route path="/" element={<UploadVideo data={videoData} updateData={updateData} />} />
-      <Route path="/settings" element={<UploadSettings data={videoData} />} />
+      <Route path="/settings" element={
+        <UploadSettings 
+          data={videoData} 
+          updateData={updateData}
+          allowComments={allowComments}
+          setAllowComments={setAllowComments}
+          allowDuet={allowDuet}
+          setAllowDuet={setAllowDuet}
+          allowStitch={allowStitch}
+          setAllowStitch={setAllowStitch}
+        />
+      } />
     </Routes>
   );
 };

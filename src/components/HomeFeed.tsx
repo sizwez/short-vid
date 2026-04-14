@@ -6,6 +6,7 @@ import { useToast } from './ToastContainer';
 import ShareModal from './ShareModal';
 import CommentModal from './CommentModal';
 import VideoItem from './VideoItem';
+import SkeletonVideoItem from './SkeletonVideoItem';
 import { trackVideoPlay } from '../lib/analytics';
 import { captureError } from '../lib/monitoring';
 import { useNavigate } from 'react-router-dom';
@@ -190,9 +191,10 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
 
   if (loading && videos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-black">
-        <Loader2 className="w-12 h-12 text-pink-500 animate-spin" />
-        <p className="text-white/50 text-sm mt-4">Loading your vibe...</p>
+      <div className="h-screen bg-black overflow-hidden">
+        {[1, 2, 3].map((i) => (
+          <SkeletonVideoItem key={i} />
+        ))}
       </div>
     );
   }
@@ -249,18 +251,34 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
         ))}
 
         {videos.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-             <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                <Play className="w-10 h-10 text-white/20" />
-             </div>
-             <h2 className="text-xl font-bold mb-2">No videos yet</h2>
-             <p className="text-gray-500 text-sm mb-8">Follow more creators to see their vibes here!</p>
-             <button 
-               onClick={() => setActiveTab('discover')}
-               className="px-8 py-3 bg-gradient-to-r from-pink-500 to-orange-500 rounded-full font-bold shadow-lg"
-             >
-               Discover Creators
-             </button>
+          <div className="flex flex-col items-center justify-center h-full text-center px-10">
+            <motion.div 
+               initial={{ scale: 0.8, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               className="glass-card p-10 max-w-sm w-full flex flex-col items-center border-white/10 shadow-2xl relative overflow-hidden"
+            >
+               {/* Decorative background glow */}
+               <div className="absolute -top-10 -right-10 w-24 h-24 bg-pink-500/20 blur-3xl rounded-full" />
+               <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-orange-500/20 blur-3xl rounded-full" />
+
+               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mb-6 shadow-inner border border-white/5 animate-float">
+                  <Play className="w-10 h-10 text-white/40 fill-white/10" />
+               </div>
+               
+               <h2 className="text-2xl font-bold mb-3 tracking-tight">No vibes yet</h2>
+               <p className="text-gray-400 text-sm mb-10 leading-relaxed">
+                 The stage is empty. Follow more creators or join the discovery to fill your feed with Mzansi's finest!
+               </p>
+               
+               <motion.button 
+                 whileHover={{ scale: 1.05 }}
+                 whileTap={{ scale: 0.95 }}
+                 onClick={() => setActiveTab('discover')}
+                 className="w-full py-4 bg-gradient-to-r from-pink-500 to-orange-500 rounded-2xl font-bold shadow-xl shadow-pink-500/20 text-white tracking-wide"
+               >
+                 Discover Creators
+               </motion.button>
+            </motion.div>
           </div>
         )}
       </div>
