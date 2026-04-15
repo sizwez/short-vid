@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Settings, Play, Camera, DollarSign } from 'lucide-react';
+import { ArrowLeft, Settings, Play, Camera, DollarSign, User } from 'lucide-react';
 import { useApp } from '../hooks/useApp';
 import { useToast } from './ToastContainer';
 import { supabase } from '../lib/supabase';
@@ -111,6 +111,26 @@ const ProfileMain: React.FC = () => {
     }
   };
 
+  if (!targetId) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-24 h-24 bg-gray-900 rounded-full flex items-center justify-center mb-6">
+          <User className="w-12 h-12 text-gray-500" />
+        </div>
+        <h2 className="text-2xl font-bold mb-3">Create a profile</h2>
+        <p className="text-gray-400 text-sm mb-8 max-w-[280px] leading-relaxed">
+          Sign up for an account to watch your favorite videos, comment, and connect with creators.
+        </p>
+        <button 
+          onClick={() => navigate('/onboarding/auth')}
+          className="bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold py-3.5 px-10 rounded-full shadow-lg shadow-orange-500/20 active:scale-95 transition-all"
+        >
+          Sign up / Log in
+        </button>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -119,7 +139,16 @@ const ProfileMain: React.FC = () => {
     );
   }
 
-  if (!targetUser) return null;
+  if (!targetUser) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <div className="text-center">
+          <p className="text-xl font-semibold mb-2">User not found</p>
+          <button onClick={() => navigate('/app')} className="text-orange-500 font-medium">Go back Home</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -298,20 +327,31 @@ const ProfileSettings: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file);
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-      if (uploadError) throw uploadError;
+      if (!cloudName || !uploadPreset) {
+        throw new Error('Cloudinary configuration missing in .env');
+      }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
+      const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+      formData.append('folder', 'avatars');
 
-      setAvatarUrl(publicUrl);
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Upload failed');
+      }
+
+      const data = await response.json();
+      setAvatarUrl(data.secure_url);
     } catch (err) {
       console.error('Upload error:', err);
       showToast('error', 'Failed to upload avatar');

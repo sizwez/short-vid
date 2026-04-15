@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Heart, Loader2, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { X, Send, Loader2, MessageCircle, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContainer';
 
@@ -8,6 +8,7 @@ interface Comment {
   id: string;
   content: string;
   created_at: string;
+  likes_count?: number;
   user: {
     id: string;
     username: string;
@@ -28,18 +29,37 @@ interface Reply {
   username: string;
 }
 
+import { createPortal } from 'react-dom';
+
+const formatTimeAgo = (dateStr: string): string => {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w`;
+};
+
 const CommentModal: React.FC<CommentModalProps> = ({ isOpen, onClose, videoId, currentUserId }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [replyTo, setReplyTo] = useState<Reply | null>(null);
+  const [totalComments, setTotalComments] = useState(0);
   const { showToast } = useToast();
+  const commentsEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchComments = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('comments')
         .select(`
           id,
@@ -51,7 +71,7 @@ const CommentModal: React.FC<CommentModalProps> = ({ isOpen, onClose, videoId, c
             display_name,
             avatar_url
           )
-        `)
+        `, { count: 'exact' })
         .eq('video_id', videoId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -62,6 +82,7 @@ const CommentModal: React.FC<CommentModalProps> = ({ isOpen, onClose, videoId, c
         user: Array.isArray(comment.user) ? comment.user[0] : comment.user
       }));
       setComments(processedComments as Comment[]);
+      setTotalComments(count || 0);
     } catch (err) {
       console.error('Error fetching comments:', err);
     } finally {
@@ -72,6 +93,8 @@ const CommentModal: React.FC<CommentModalProps> = ({ isOpen, onClose, videoId, c
   useEffect(() => {
     if (isOpen) {
       fetchComments();
+      // Auto-focus comment input after modal opens
+      setTimeout(() => inputRef.current?.focus(), 400);
     }
   }, [isOpen, videoId, fetchComments]);
 
@@ -95,7 +118,12 @@ const CommentModal: React.FC<CommentModalProps> = ({ isOpen, onClose, videoId, c
       setNewComment('');
       setReplyTo(null);
       fetchComments();
-      showToast('success', 'Comment posted!');
+      showToast('success', 'Comment posted! 🔥');
+      
+      // Scroll to top to see new comment
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 300);
     } catch (err) {
       console.error('Error posting comment:', err);
       showToast('error', 'Failed to post comment');
@@ -106,7 +134,8 @@ const CommentModal: React.FC<CommentModalProps> = ({ isOpen, onClose, videoId, c
 
   const handleReply = (commentId: string, username: string) => {
     setReplyTo({ commentId, username });
-    setNewComment(`@${username} `);
+    setNewComment('');
+    inputRef.current?.focus();
   };
 
   const cancelReply = () => {
@@ -114,117 +143,222 @@ const CommentModal: React.FC<CommentModalProps> = ({ isOpen, onClose, videoId, c
     setNewComment('');
   };
 
-  return (
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    // If dragged down more than 80px, close
+    if (info.offset.y > 80) {
+      onClose();
+    }
+  };
+
+  if (!document.body) return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-end justify-center z-50 sm:items-center p-4"
-          onClick={onClose}
-        >
+        <div className="fixed inset-0 z-[1000] pointer-events-none">
+          {/* Transparent backdrop - tapping closes but video stays visible */}
           <motion.div
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 pointer-events-auto"
+            onClick={onClose}
+            style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.6) 100%)' }}
+          />
+
+          {/* Comment Sheet - compact bottom half */}
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={0.2}
+            onDragEnd={handleDragEnd}
             onClick={(e) => e.stopPropagation()}
-            className="glass rounded-t-[32px] sm:rounded-[40px] w-full max-w-lg h-[85vh] flex flex-col shadow-[0_25px_60px_rgba(0,0,0,0.6)] border border-white/10"
+            className="absolute bottom-0 left-0 right-0 flex flex-col touch-none pointer-events-auto"
+            style={{ 
+              maxHeight: '55vh',
+              height: '55vh',
+              background: 'linear-gradient(180deg, rgba(15,15,20,0.97) 0%, rgba(10,10,15,0.99) 100%)',
+              borderTopLeftRadius: '24px',
+              borderTopRightRadius: '24px',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+            }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5 backdrop-blur-md">
-              <h3 className="text-xl font-bold text-white tracking-tight">Comments</h3>
-              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all duration-300 text-gray-400">
-                <X className="w-6 h-6" />
-              </button>
+            {/* Drag Handle + Header */}
+            <div className="flex-shrink-0 pt-2 pb-1 cursor-grab active:cursor-grabbing">
+              <div 
+                className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-2"
+                style={{ touchAction: 'none' }}
+              />
+              <div className="flex items-center justify-between px-5 pb-3 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">
+                    Comments
+                  </h3>
+                  <span className="text-[12px] text-gray-500 font-medium">
+                    {totalComments > 0 ? `(${totalComments})` : ''}
+                  </span>
+                </div>
+                <button 
+                  onClick={onClose} 
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-all duration-200 text-gray-500 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Comments List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+            <div 
+              ref={scrollContainerRef}
+              className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-4"
+              style={{ 
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              }}
+            >
               {isLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-7 h-7 text-orange-500 animate-spin" />
                 </div>
               ) : comments.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  <p className="font-medium">No comments yet. Be the first!</p>
+                <div className="text-center py-8">
+                  <MessageCircle className="w-10 h-10 mx-auto mb-2 text-gray-700" />
+                  <p className="text-gray-500 text-sm font-medium">No comments yet</p>
+                  <p className="text-gray-600 text-xs mt-1">Be the first to drop a vibe 🎵</p>
                 </div>
               ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex space-x-3 group animate-fadeIn">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full p-0.5 bg-gradient-to-br from-pink-500/50 to-orange-500/50 group-hover:from-pink-500 group-hover:to-orange-500 transition-all duration-500">
+                comments.map((comment, index) => (
+                  <motion.div 
+                    key={comment.id} 
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03, duration: 0.25 }}
+                    className="flex gap-2.5 group"
+                  >
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-white/10">
                         <img
-                          src={comment.user?.avatar_url || `https://ui-avatars.com/api/?name=${comment.user?.username || 'user'}&background=random`}
+                          src={comment.user?.avatar_url || `https://ui-avatars.com/api/?name=${comment.user?.username || 'user'}&background=random&size=64`}
                           alt=""
-                          className="w-full h-full rounded-full border-2 border-black object-cover"
+                          className="w-full h-full object-cover"
                         />
                       </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="glass-light rounded-[20px] px-4 py-3 border border-white/5 group-hover:border-white/10 transition-colors">
-                        <p className="text-xs font-bold text-orange-400 mb-1">@{comment.user?.username || 'user'}</p>
-                        <p className="text-gray-200 text-sm leading-relaxed">{comment.content}</p>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[12px] font-bold text-white/80 truncate">
+                          {comment.user?.display_name || comment.user?.username || 'user'}
+                        </span>
+                        <span className="text-[10px] text-gray-600 flex-shrink-0">
+                          {formatTimeAgo(comment.created_at)}
+                        </span>
                       </div>
-                      <div className="flex items-center space-x-4 mt-2 px-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                        <span>{new Date(comment.created_at).toLocaleDateString()}</span>
+                      <p className="text-[13px] text-gray-300 leading-relaxed mt-0.5 break-words">
+                        {comment.content}
+                      </p>
+                      <div className="flex items-center gap-4 mt-1.5">
                         {currentUserId && comment.user?.id !== currentUserId && (
                           <button
                             onClick={() => handleReply(comment.id, comment.user?.username || 'user')}
-                            className="hover:text-white transition-colors"
+                            className="text-[11px] font-semibold text-gray-500 hover:text-orange-400 transition-colors"
                           >
                             Reply
                           </button>
                         )}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))
               )}
+              <div ref={commentsEndRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="p-6 border-t border-white/5 bg-black/40 backdrop-blur-xl">
+            {/* Input Area - fixed at bottom of sheet */}
+            <div 
+              className="flex-shrink-0 border-t border-white/5"
+              style={{ 
+                background: 'rgba(10,10,15,0.95)',
+                backdropFilter: 'blur(20px)',
+                paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+              }}
+            >
+              {/* Reply indicator */}
               {replyTo && (
-                <div className="flex items-center justify-between mb-3 bg-white/5 rounded-xl px-4 py-2 border border-white/10">
-                  <span className="text-xs text-gray-400">
-                    Replying to <span className="text-orange-500 font-bold">@{replyTo.username}</span>
+                <div className="flex items-center justify-between mx-4 mt-2 mb-1 bg-white/5 rounded-xl px-3 py-1.5 border border-white/5">
+                  <span className="text-[11px] text-gray-400">
+                    Replying to <span className="text-orange-400 font-bold">@{replyTo.username}</span>
                   </span>
-                  <button onClick={cancelReply} className="text-gray-400 hover:text-white">
-                    <X className="w-4 h-4" />
+                  <button onClick={cancelReply} className="text-gray-500 hover:text-white p-0.5">
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
-              <div className="flex items-center space-x-3">
-                <div className="flex-1 flex items-center glass-light rounded-full pl-4 pr-1 py-1 border border-white/10 focus-within:ring-2 focus-within:ring-orange-500/30 transition-all">
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder={replyTo ? `Reply to @${replyTo.username}...` : "Drop a vibe..."}
-                    className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-sm py-2"
-                    onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
-                    disabled={isPosting}
-                  />
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={handlePostComment}
-                    disabled={!newComment.trim() || isPosting}
-                    className={`p-2 rounded-full transition-all ${
-                      newComment.trim() ? 'bg-orange-500 text-white shadow-lg' : 'bg-white/5 text-gray-600'
-                    }`}
-                  >
-                    <Send className="w-4 h-4" />
-                  </motion.button>
-                </div>
-              </div>
+
+              <div className="flex items-end gap-2 px-4 py-2">
+                {currentUserId ? (
+                  <>
+                    <textarea
+                      ref={inputRef}
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder={replyTo ? `Reply to @${replyTo.username}...` : "Add a comment..."}
+                      className="flex-1 bg-white/5 rounded-2xl py-2.5 px-4 text-white placeholder-gray-600 text-[13px] focus:outline-none focus:ring-1 focus:ring-orange-500/40 resize-none min-h-[38px] max-h-[80px] border border-white/5"
+                      disabled={isPosting}
+                      rows={1}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handlePostComment();
+                        }
+                      }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = Math.min(target.scrollHeight, 80) + 'px';
+                      }}
+                    />
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={handlePostComment}
+                      disabled={!newComment.trim() || isPosting}
+                      className={`p-2.5 rounded-full transition-all flex-shrink-0 ${
+                        newComment.trim() 
+                          ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20' 
+                          : 'bg-white/5 text-gray-600'
+                      }`}
+                    >
+                      {isPosting ? (
+                        <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                      ) : (
+                        <Send className="w-4.5 h-4.5" />
+                      )}
+                    </motion.button>
+                  </>
+                ) : (
+                  <div className="w-full text-center py-2">
+                    <span className="text-gray-500 text-sm">
+                      <span className="text-orange-400 font-semibold cursor-pointer">Log in</span> to comment
+                    </span>
+                  </div>
+                )}
+               </div>
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
