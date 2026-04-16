@@ -13,25 +13,35 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [hasCamera, setHasCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
   const startCamera = useCallback(async () => {
+    // Stop any existing stream first
+    stopCamera();
+
     try {
       const constraints: MediaStreamConstraints = {
         video: { facingMode },
         audio: true
       };
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(mediaStream);
+      streamRef.current = mediaStream;
       setHasCamera(true);
       setError(null);
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
@@ -40,19 +50,12 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
       setHasCamera(false);
       setError('Camera access denied or not available');
     }
-  }, [facingMode]);
-
-  const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-  }, [stream]);
+  }, [facingMode, stopCamera]);
 
   useEffect(() => {
     startCamera();
-    return () => stopCamera();
-  }, [startCamera, stopCamera]);
+    return () => { stopCamera(); };
+  }, [startCamera]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -71,10 +74,10 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
   }, [isRecording]);
 
   const startRecording = useCallback(() => {
-    if (!stream) return;
-    
+    if (!streamRef.current) return;
+
     chunksRef.current = [];
-    const mediaRecorder = new MediaRecorder(stream, {
+    const mediaRecorder = new MediaRecorder(streamRef.current, {
       mimeType: 'video/webm;codecs=vp9,opus'
     });
 
@@ -97,7 +100,7 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
     mediaRecorder.start(1000);
     setIsRecording(true);
     setRecordingTime(0);
-  }, [stream, onVideoRecorded]);
+  }, [onVideoRecorded]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -119,7 +122,7 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
 
   if (!hasCamera) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-6"
@@ -148,7 +151,7 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="fixed inset-0 bg-black z-50"
@@ -165,14 +168,14 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
         <button onClick={onClose} className="p-2 bg-black/30 rounded-full">
           <X className="w-6 h-6 text-white" />
         </button>
-        
+
         {isRecording && (
           <div className="flex items-center gap-2 bg-red-500/80 px-3 py-1.5 rounded-full">
             <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
             <span className="text-white font-medium">{formatTime(recordingTime)}</span>
           </div>
         )}
-        
+
         <button onClick={toggleCamera} className="p-2 bg-black/30 rounded-full">
           <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -184,10 +187,10 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
         <p className="text-white/70 text-sm mb-4">
           {isRecording ? 'Release to stop recording' : 'Hold to record'}
         </p>
-        
+
         <div className="flex items-center gap-8">
           <div className="w-16" />
-          
+
           <motion.button
             onTouchStart={startRecording}
             onTouchEnd={stopRecording}
@@ -195,11 +198,10 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
             onMouseUp={stopRecording}
             onMouseLeave={stopRecording}
             whileTap={{ scale: 0.9 }}
-            className={`relative w-20 h-20 rounded-full border-4 ${
-              isRecording 
-                ? 'border-red-500 bg-red-500' 
-                : 'border-white bg-white/20'
-            }`}
+            className={`relative w-20 h-20 rounded-full border-4 ${isRecording
+              ? 'border-red-500 bg-red-500'
+              : 'border-white bg-white/20'
+              }`}
           >
             {isRecording && (
               <motion.div
@@ -209,7 +211,7 @@ const CameraRecorder: React.FC<CameraRecorderProps> = ({ onVideoRecorded, onClos
               />
             )}
           </motion.button>
-          
+
           <button
             onClick={() => navigate('/app/upload')}
             className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center"

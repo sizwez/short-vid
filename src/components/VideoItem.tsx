@@ -108,7 +108,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   }, [isActive, video, onVideoPlay]);
 
   return (
-    <div className="relative h-screen snap-start flex items-center justify-center bg-black overflow-hidden">
+    <div className="relative h-[100dvh] snap-start snap-always flex items-center justify-center bg-black overflow-hidden">
       {/* Video element */}
       <video
         ref={videoRef}

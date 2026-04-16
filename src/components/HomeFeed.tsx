@@ -56,6 +56,8 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const activeIndexRef = useRef(0);
+  const isScrollingRef = useRef(false);
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -137,12 +139,16 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
   }, [activeTab, fetchVideos]);
 
   const handleScroll = useCallback(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || isScrollingRef.current) return;
     const index = Math.round(containerRef.current.scrollTop / window.innerHeight);
-    if (index !== activeIndex) {
+    if (index !== activeIndexRef.current) {
+      isScrollingRef.current = true;
+      activeIndexRef.current = index;
       setActiveIndex(index);
+      // Prevent multiple scroll events from firing within a short window
+      setTimeout(() => { isScrollingRef.current = false; }, 400);
     }
-  }, [activeIndex]);
+  }, []);
 
   const handleLike = async (videoId: string) => {
     if (!currentUserId) { showToast('error', 'Login to like'); return; }
@@ -185,11 +191,11 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
   };
 
   const incrementView = async (videoId: string) => {
-    try { 
-      await supabase.rpc('increment_video_view', { v_id: videoId }); 
-    } catch (err) { 
+    try {
+      await supabase.rpc('increment_video_view', { v_id: videoId });
+    } catch (err) {
       console.warn('View increment failed:', err);
-      captureError(err instanceof Error ? err : new Error(String(err)), { videoId }); 
+      captureError(err instanceof Error ? err : new Error(String(err)), { videoId });
     }
   };
 
@@ -212,9 +218,8 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`relative text-[15px] font-bold capitalize transition-all duration-300 ${
-                activeTab === tab ? 'text-white' : 'text-gray-400'
-              }`}
+              className={`relative text-[15px] font-bold capitalize transition-all duration-300 ${activeTab === tab ? 'text-white' : 'text-gray-400'
+                }`}
             >
               {tab}
               {activeTab === tab && (
@@ -232,7 +237,7 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="h-screen overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+        className="h-[100dvh] overflow-y-scroll snap-y snap-mandatory scrollbar-hide overscroll-contain"
       >
         {videos.map((video, index) => (
           <VideoItem
@@ -256,32 +261,32 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
 
         {videos.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center px-10">
-            <motion.div 
-               initial={{ scale: 0.8, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               className="glass-card p-10 max-w-sm w-full flex flex-col items-center border-white/10 shadow-2xl relative overflow-hidden"
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="glass-card p-10 max-w-sm w-full flex flex-col items-center border-white/10 shadow-2xl relative overflow-hidden"
             >
-               {/* Decorative background glow */}
-               <div className="absolute -top-10 -right-10 w-24 h-24 bg-pink-500/20 blur-3xl rounded-full" />
-               <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-orange-500/20 blur-3xl rounded-full" />
+              {/* Decorative background glow */}
+              <div className="absolute -top-10 -right-10 w-24 h-24 bg-pink-500/20 blur-3xl rounded-full" />
+              <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-orange-500/20 blur-3xl rounded-full" />
 
-               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mb-6 shadow-inner border border-white/5 animate-float">
-                  <Play className="w-10 h-10 text-white/40 fill-white/10" />
-               </div>
-               
-               <h2 className="text-2xl font-bold mb-3 tracking-tight">No vibes yet</h2>
-               <p className="text-gray-400 text-sm mb-10 leading-relaxed">
-                 The stage is empty. Follow more creators or join the discovery to fill your feed with Mzansi's finest!
-               </p>
-               
-               <motion.button 
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={() => setActiveTab('discover')}
-                 className="w-full py-4 bg-gradient-to-r from-pink-500 to-orange-500 rounded-2xl font-bold shadow-xl shadow-pink-500/20 text-white tracking-wide"
-               >
-                 Discover Creators
-               </motion.button>
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mb-6 shadow-inner border border-white/5 animate-float">
+                <Play className="w-10 h-10 text-white/40 fill-white/10" />
+              </div>
+
+              <h2 className="text-2xl font-bold mb-3 tracking-tight">No vibes yet</h2>
+              <p className="text-gray-400 text-sm mb-10 leading-relaxed">
+                The stage is empty. Follow more creators or join the discovery to fill your feed with Mzansi's finest!
+              </p>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/search')}
+                className="w-full py-4 bg-gradient-to-r from-pink-500 to-orange-500 rounded-2xl font-bold shadow-xl shadow-pink-500/20 text-white tracking-wide"
+              >
+                Discover Creators
+              </motion.button>
             </motion.div>
           </div>
         )}
@@ -302,7 +307,9 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
       <ShareModal
         isOpen={shareModalData.isOpen}
         onClose={() => setShareModalData({ isOpen: false, video: null })}
-        video={shareModalData.video}
+        videoId={shareModalData.video?.id || ''}
+        title={shareModalData.video?.title || 'Check out this video!'}
+        url={shareModalData.video?.video_url || window.location.href}
       />
     </div>
   );
