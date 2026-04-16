@@ -185,8 +185,12 @@ const HomeFeed: React.FC<HomeFeedProps> = ({ onCallUser }) => {
   };
 
   const incrementView = async (videoId: string) => {
-    try { await supabase.rpc('increment_video_view', { v_id: videoId }); }
-    catch (err) { captureError(err instanceof Error ? err : new Error(String(err)), { videoId }); }
+    try { 
+      await supabase.rpc('increment_video_view', { v_id: videoId }); 
+    } catch (err) { 
+      console.warn('View increment failed:', err);
+      captureError(err instanceof Error ? err : new Error(String(err)), { videoId }); 
+    }
   };
 
   if (loading && videos.length === 0) {

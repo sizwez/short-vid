@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Heart, MessageCircle, Share2, Bookmark, ArrowLeft, Loader2, X, Send } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Heart, MessageCircle, Share2, Bookmark, ArrowLeft, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from './ToastContainer';
 import ShareModal from './ShareModal';
+import CommentModal from './CommentModal';
 import { useApp } from '../hooks/useApp';
 
 interface Video {
@@ -32,17 +33,7 @@ interface Video {
   } | null;
 }
 
-interface Comment {
-  id: string;
-  content: string;
-  created_at: string;
-  user: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string;
-  } | null;
-}
+
 
 const VideoPlayer: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -57,10 +48,11 @@ const VideoPlayer: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [isPosting, setIsPosting] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [showHeart, setShowHeart] = useState(false);
+  const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
+  const [optimisticLikes, setOptimisticLikes] = useState<number | null>(null);
+  const lastTapRef = useRef<number>(0);
 
   const fetchVideo = useCallback(async () => {
     if (!id) return;
@@ -104,7 +96,11 @@ const VideoPlayer: React.FC = () => {
       };
       setVideo(processedVideo as Video);
       
-      await supabase.rpc('increment_video_view', { v_id: id });
+      try {
+        await supabase.rpc('increment_video_view', { v_id: id });
+      } catch (rpcErr) {
+        console.warn('View increment failed (Normal if RPC is missing):', rpcErr);
+      }
       
       if (user) {
         await supabase.from('video_views').insert({
@@ -143,38 +139,7 @@ const VideoPlayer: React.FC = () => {
     setIsSaved(!!save);
   }, [user, id]);
 
-  const fetchComments = useCallback(async () => {
-    if (!id) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('comments')
-        .select(`
-          id,
-          content,
-          created_at,
-          user:user_id (
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
-        .eq('video_id', id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      
-      const processedComments = (data || []).map(comment => ({
-        ...comment,
-        user: Array.isArray(comment.user) ? comment.user[0] : comment.user
-      }));
-      setComments(processedComments as Comment[]);
-    } catch (err) {
-      console.error('Error fetching comments:', err);
-    }
-  }, [id]);
 
   useEffect(() => {
     fetchVideo();
@@ -192,19 +157,53 @@ const VideoPlayer: React.FC = () => {
       return;
     }
 
+    // Optimistic update
+    const wasLiked = isLiked;
+    setIsLiked(!wasLiked);
+    setOptimisticLikes((prev) => {
+      const base = prev ?? video?.likes ?? 0;
+      return wasLiked ? base - 1 : base + 1;
+    });
+
     try {
-      if (isLiked) {
+      if (wasLiked) {
         await supabase.from('likes').delete().eq('user_id', user.id).eq('video_id', id);
-        setIsLiked(false);
       } else {
         await supabase.from('likes').insert({ user_id: user.id, video_id: id });
-        setIsLiked(true);
       }
+      // Refresh from server to get accurate count
       fetchVideo();
     } catch (err) {
       console.error('Like error:', err);
+      // Revert on error
+      setIsLiked(wasLiked);
+      setOptimisticLikes(null);
     }
   };
+
+  const handleDoubleTap = useCallback((e: React.MouseEvent<HTMLVideoElement>) => {
+    const now = Date.now();
+    const timeDiff = now - lastTapRef.current;
+    
+    if (timeDiff < 300 && timeDiff > 0) {
+      // Double tap detected - like the video
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      setHeartPosition({ x, y });
+      setShowHeart(true);
+      
+      if (!isLiked) {
+        handleLike();
+      }
+      
+      setTimeout(() => setShowHeart(false), 1000);
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  }, [isLiked, handleLike]);
 
   const handleSave = async () => {
     if (!user) {
@@ -227,31 +226,7 @@ const VideoPlayer: React.FC = () => {
     }
   };
 
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !user) return;
-    
-    setIsPosting(true);
-    try {
-      const { error } = await supabase
-        .from('comments')
-        .insert({
-          video_id: id,
-          user_id: user.id,
-          content: newComment.trim()
-        });
 
-      if (error) throw error;
-      setNewComment('');
-      fetchComments();
-      fetchVideo();
-      showToast('success', 'Comment posted!');
-    } catch (err) {
-      console.error('Error posting comment:', err);
-      showToast('error', 'Failed to post comment');
-    } finally {
-      setIsPosting(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -285,7 +260,24 @@ const VideoPlayer: React.FC = () => {
           autoPlay
           loop
           poster={video.thumbnail_url}
+          onClick={handleDoubleTap}
         />
+
+        {/* Double-tap Heart Animation */}
+        <AnimatePresence>
+          {showHeart && (
+            <motion.div
+              initial={{ opacity: 1, scale: 0 }}
+              animate={{ opacity: 1, scale: 1, y: -20 }}
+              exit={{ opacity: 0, scale: 1.5, y: -60 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="absolute pointer-events-none z-30"
+              style={{ left: heartPosition.x - 40, top: heartPosition.y - 40 }}
+            >
+              <Heart className="w-20 h-20 text-red-500 fill-red-500 drop-shadow-lg" />
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent">
           <button 
@@ -335,7 +327,7 @@ const VideoPlayer: React.FC = () => {
                 >
                   <Heart className={`w-7 h-7 ${isLiked ? 'fill-current' : ''}`} />
                 </button>
-                <span className="text-white/80 text-xs mt-1">{video.likes}</span>
+                <span className="text-white/80 text-xs mt-1">{optimisticLikes ?? video.likes}</span>
               </motion.div>
               
               <motion.div whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
@@ -372,74 +364,12 @@ const VideoPlayer: React.FC = () => {
         </div>
       </div>
 
-      {showComments && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/80" onClick={() => setShowComments(false)}>
-          <div 
-            className="bg-gray-900 w-full rounded-t-3xl max-h-[70vh] flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-              <h3 className="text-white font-bold">Comments</h3>
-              <button onClick={() => setShowComments(false)} className="p-2">
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {comments.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No comments yet. Be the first!</p>
-                </div>
-              ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
-                      {comment.user?.avatar_url ? (
-                        <img src={comment.user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        <span className="text-white text-sm">
-                          {comment.user?.username?.charAt(0).toUpperCase() || '?'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white text-sm">
-                        <span className="font-semibold">@{comment.user?.username || 'user'}</span>{' '}
-                        {comment.content}
-                      </p>
-                      <span className="text-gray-500 text-xs">
-                        {new Date(comment.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="p-4 border-t border-gray-700">
-              <div className="flex items-center space-x-3">
-                <input
-                  type="text"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder={user ? "Add a comment..." : "Login to comment"}
-                  className="flex-1 bg-gray-800 rounded-full py-2 px-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  disabled={!user || isPosting}
-                  onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
-                />
-                <button
-                  onClick={handlePostComment}
-                  disabled={!newComment.trim() || !user || isPosting}
-                  className="bg-orange-500 p-2 rounded-full disabled:opacity-50"
-                >
-                  <Send className="w-5 h-5 text-white" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CommentModal
+        isOpen={showComments}
+        onClose={() => setShowComments(false)}
+        videoId={id || ''}
+        currentUserId={user?.id || null}
+      />
 
       <ShareModal
         isOpen={shareModalOpen}

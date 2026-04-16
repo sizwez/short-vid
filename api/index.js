@@ -4,30 +4,12 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import crypto from 'crypto';
 import admin from 'firebase-admin';
+import { initializeFirebase } from './firebase-init.js';
 
 dotenv.config();
 
 // ─── Firebase Admin Initialization ───────────────────────────────────────────
-const firebaseServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-
-if (firebaseServiceAccount) {
-  try {
-    const serviceAccount = JSON.parse(
-      Buffer.from(firebaseServiceAccount, 'base64').toString('ascii')
-    );
-    
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      console.log('Firebase Admin initialized successfully');
-    }
-  } catch (err) {
-    console.error('Failed to initialize Firebase Admin:', err.message);
-  }
-} else {
-  console.warn('FIREBASE_SERVICE_ACCOUNT missing. Notifications will run in simulation mode.');
-}
+initializeFirebase();
 
 const app = express();
 
@@ -114,6 +96,8 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
+
+// Firebase Auth Bridge is no longer needed (Migrated to Cloudinary)
 
 // ─── Initialize Payment with Paystack ─────────────────────────────────────────
 app.post('/api/paystack/initialize', authenticateUser, paymentRateLimit, async (req, res) => {

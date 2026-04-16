@@ -121,7 +121,7 @@ const ProfileMain: React.FC = () => {
         <p className="text-gray-400 text-sm mb-8 max-w-[280px] leading-relaxed">
           Sign up for an account to watch your favorite videos, comment, and connect with creators.
         </p>
-        <button 
+        <button
           onClick={() => navigate('/onboarding/auth')}
           className="bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold py-3.5 px-10 rounded-full shadow-lg shadow-orange-500/20 active:scale-95 transition-all"
         >
@@ -231,11 +231,10 @@ const ProfileMain: React.FC = () => {
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={toggleFollow}
-                className={`flex-1 py-2.5 rounded-full font-medium text-sm transition-all ${
-                  isFollowing 
-                    ? 'bg-white/10 border border-white/10 text-white' 
+                className={`flex-1 py-2.5 rounded-full font-medium text-sm transition-all ${isFollowing
+                    ? 'bg-white/10 border border-white/10 text-white'
                     : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
-                }`}
+                  }`}
               >
                 {isFollowing ? 'Following' : 'Follow'}
               </motion.button>
@@ -280,7 +279,7 @@ const VideoGridItem: React.FC<{ video: Video; index: number }> = ({ video, index
       transition={{ delay: index * 0.03 }}
       className="aspect-[9/16] bg-gray-900 relative cursor-pointer overflow-hidden"
       onMouseEnter={() => {
-        videoRef.current?.play().catch(() => {});
+        videoRef.current?.play().catch(() => { });
       }}
       onMouseLeave={() => {
         if (videoRef.current) {
@@ -455,6 +454,7 @@ const Profile: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<ProfileMain />} />
+      <Route path="/:userId" element={<ProfileMain />} />
       <Route path="/settings" element={<ProfileSettings />} />
     </Routes>
   );

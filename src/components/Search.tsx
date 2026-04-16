@@ -214,7 +214,7 @@ const Search: React.FC = () => {
                         )}
                     </div>
                 ) : query ? (
-                    <EmptyState 
+                    <EmptyState
                         type="search"
                         title={`No results for "${query}"`}
                         description="Try searching for something different or check your spelling"
@@ -244,7 +244,10 @@ const Search: React.FC = () => {
                             <p className="text-gray-400 text-sm mb-4">
                                 Explore the best talent across South Africa. From dance challenges to comedy skits.
                             </p>
-                            <button className="bg-orange-500 text-white px-6 py-2 rounded-xl text-sm font-bold">
+                            <button
+                                onClick={() => navigate('/app/challenges')}
+                                className="bg-orange-500 text-white px-6 py-2 rounded-xl text-sm font-bold"
+                            >
                                 See More
                             </button>
                         </div>

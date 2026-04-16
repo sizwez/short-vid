@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Plus, User, Compass, Bell } from 'lucide-react';
+import { Home, Plus, User, Compass, Bell, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const BottomNavigation: React.FC = () => {
@@ -9,6 +9,7 @@ const BottomNavigation: React.FC = () => {
 
   const tabs = [
     { icon: Home, label: 'Home', path: '/app' },
+    { icon: Users, label: 'Friends', path: '/app/friends' },
     { icon: Compass, label: 'Explore', path: '/app/search' },
     { icon: Plus, label: '', path: '/app/upload' },
     { icon: Bell, label: 'Inbox', path: '/app/notifications' },
@@ -66,16 +67,15 @@ const BottomNavigation: React.FC = () => {
                 className="flex flex-col items-center justify-center p-2 relative group"
               >
                 <div className={`p-1 transition-all duration-300 ${active ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'}`}>
-                  <Icon 
-                    className={`w-6 h-6 transition-all duration-300 ${active ? 'scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'group-hover:scale-110'}`} 
+                  <Icon
+                    className={`w-6 h-6 transition-all duration-300 ${active ? 'scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'group-hover:scale-110'}`}
                     strokeWidth={active ? 2.5 : 2}
                   />
                 </div>
-                
+
                 {tab.label && (
-                  <span className={`text-[10px] font-bold mt-0.5 tracking-wide transition-all duration-300 ${
-                    active ? 'opacity-100 translate-y-0 text-white' : 'opacity-0 translate-y-1 text-gray-500'
-                  }`}>
+                  <span className={`text-[10px] font-bold mt-0.5 tracking-wide transition-all duration-300 ${active ? 'opacity-100 translate-y-0 text-white' : 'opacity-0 translate-y-1 text-gray-500'
+                    }`}>
                     {tab.label}
                   </span>
                 )}

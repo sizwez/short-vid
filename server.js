@@ -3,8 +3,13 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import crypto from 'crypto';
+import admin from 'firebase-admin';
+import { initializeFirebase } from './api/firebase-init.js';
 
 dotenv.config();
+
+// ─── Firebase Admin Initialization ───────────────────────────────────────────
+initializeFirebase();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -95,6 +100,8 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
+
+// Firebase Auth Bridge is no longer needed (Migrated to Cloudinary)
 
 // ─── Initialize Payment with Paystack ─────────────────────────────────────────
 app.post('/api/paystack/initialize', authenticateUser, paymentRateLimit, async (req, res) => {

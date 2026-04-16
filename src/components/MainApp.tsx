@@ -1,6 +1,5 @@
 import React, { Suspense, useState, useEffect, lazy } from 'react';
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import BottomNavigation from './BottomNavigation';
 import ErrorBoundary from './ErrorBoundary';
 import NetworkStatusBanner from './NetworkStatusBanner';
@@ -20,6 +19,7 @@ const Settings = lazy(() => import('./Settings'));
 const PaymentFlow = lazy(() => import('./PaymentFlow'));
 const CreatorDashboard = lazy(() => import('./CreatorDashboard'));
 const Search = lazy(() => import('./Search'));
+const Friends = lazy(() => import('./Friends'));
 const Messages = lazy(() => import('./Messages'));
 const VideoPlayer = lazy(() => import('./VideoPlayer'));
 const CameraRecorder = lazy(() => import('./CameraRecorder'));
@@ -78,9 +78,6 @@ const MainAppContent: React.FC = () => {
     setActiveCall({ recipientId, isIncoming: false });
   };
 
-  const routeSegments = location.pathname.replace('/app', '').split('/').filter(Boolean);
-  const animationKey = routeSegments[0] || 'home';
-
   return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
       <NetworkStatusBanner />
@@ -88,31 +85,21 @@ const MainAppContent: React.FC = () => {
       <main className="relative z-10 w-full min-h-screen">
         <ErrorBoundary>
           <Suspense fallback={<RouteFallback />}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={animationKey}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.02 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="w-full min-h-screen"
-              >
-                <Routes location={location}>
-                  <Route path="/" element={<HomeFeed onCallUser={startCall} />} />
-                  <Route path="/video/:id" element={<VideoPlayer />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/upload/*" element={<UploadFlow />} />
-                  <Route path="/profile/*" element={<Profile />} />
-                  <Route path="/challenges/*" element={<Challenges />} />
-                  <Route path="/notifications" element={<Notifications />} />
-                  <Route path="/messages/*" element={<Messages onCallUser={startCall} />} />
-                  <Route path="/settings/*" element={<Settings />} />
-                  <Route path="/payment/*" element={<PaymentFlow />} />
-                  <Route path="/creator-dashboard/*" element={<CreatorDashboard />} />
-                  <Route path="/camera" element={<CameraRecorderWrapper />} />
-                </Routes>
-              </motion.div>
-            </AnimatePresence>
+            <Routes location={location}>
+              <Route path="/" element={<HomeFeed onCallUser={startCall} />} />
+              <Route path="/video/:id" element={<VideoPlayer />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/friends" element={<Friends />} />
+              <Route path="/upload/*" element={<UploadFlow />} />
+              <Route path="/profile/*" element={<Profile />} />
+              <Route path="/challenges/*" element={<Challenges />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/messages/*" element={<Messages onCallUser={startCall} />} />
+              <Route path="/settings/*" element={<Settings />} />
+              <Route path="/payment/*" element={<PaymentFlow />} />
+              <Route path="/creator-dashboard/*" element={<CreatorDashboard />} />
+              <Route path="/camera" element={<CameraRecorderWrapper />} />
+            </Routes>
           </Suspense>
         </ErrorBoundary>
 

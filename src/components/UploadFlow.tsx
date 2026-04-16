@@ -2,14 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Upload, ArrowLeft, Hash, X, Camera, Scissors } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { storage } from '../firebase.config';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from './ToastContainer';
 import { moderateVideoUpload } from '../lib/moderation';
 import VideoTrim from './VideoTrim';
 import { useUpload } from '../context/UploadContext';
 import { generateVideoThumbnail } from '../lib/videoUtils';
-import { uploadBytes } from 'firebase/storage';
 
 interface UploadVideoProps {
   data: any;
@@ -23,6 +20,7 @@ const UploadVideo: React.FC<UploadVideoProps> = ({ data, updateData }) => {
   const [showTrim, setShowTrim] = useState(false);
 
   const handleVideoSelect = (file: File) => {
+    _uploadCompleted = false;
     // Validate video file
     const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB (Supported by Firebase)
     const ALLOWED_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/3gpp'];
@@ -232,8 +230,9 @@ interface UploadSettingsProps {
   resetUpload: () => void;
 }
 
-// Module-level flag that survives React state resets and HMR
+// Module-level flags that survive React state resets and HMR
 let _uploadActive = false;
+let _uploadCompleted = false;
 
 
 const UploadSettings: React.FC<UploadSettingsProps> = ({ 
@@ -251,9 +250,9 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
   const [allowDuet, setAllowDuet] = useState(true);
   const [allowStitch, setAllowStitch] = useState(true);
 
-  // Redirect back if file state is lost — but NOT during an active upload
+  // Redirect back if file state is lost — but NOT during an active upload or after successful completion
   useEffect(() => {
-    if (!data.file && !isPosting && !_uploadActive) {
+    if (!data.file && !isPosting && !_uploadActive && !_uploadCompleted) {
       console.warn('UploadFlow: State lost or file missing. Redirecting to upload root.');
       navigate('/app/upload', { replace: true });
     }
@@ -298,12 +297,16 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
         return;
       }
 
-      // Get a fresh access token for the XHR request
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) {
-        showToast('error', 'Session expired. Please login again.');
-        navigate('/onboarding/auth');
+      // 3. Cloudinary Unsigned Upload
+      console.log('UploadFlow: Initializing Cloudinary upload...');
+      
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+      if (!cloudName || !uploadPreset) {
+        showToast('error', 'Cloudinary configuration missing in .env');
+        setIsPosting(false);
+        _uploadActive = false;
         return;
       }
 
@@ -318,52 +321,56 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
       }
 
       setUploadProgress(1);
-      
-      console.log('UploadFlow: Starting parallel upload tasks...');
 
-      // 1. Start Thumbnail Task (Concurrent)
-      const thumbnailPromise = (async () => {
-        try {
-          console.log('UploadFlow: Generating/Uploading thumbnail...');
-          const thumbnailBlob = await generateVideoThumbnail(videoFile);
-          const thumbRef = ref(storage, `thumbnails/${user.id}/${Date.now()}_thumb.jpg`);
-          const thumbSnapshot = await uploadBytes(thumbRef, thumbnailBlob);
-          const url = await getDownloadURL(thumbSnapshot.ref);
-          console.log('UploadFlow: Thumbnail ready:', url);
-          return url;
-        } catch (thumbErr) {
-          console.error('Error generating/uploading thumbnail:', thumbErr);
-          return ''; // Fallback to empty string if thumbnail fails
-        }
-      })();
+      // Helper to upload to Cloudinary using XHR for progress tracking
+      const uploadToCloudinary = (file: File | Blob, isVideo: boolean): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const url = `https://api.cloudinary.com/v1_1/${cloudName}/${isVideo ? 'video' : 'image'}/upload`;
+          const xhr = new XMLHttpRequest();
+          const formData = new FormData();
 
-      // 2. Start Video Upload Task
-      const storageRef = ref(storage, `videos/${user.id}/${Date.now()}_${videoFile.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, videoFile);
+          formData.append('file', file);
+          formData.append('upload_preset', uploadPreset);
+          formData.append('folder', isVideo ? 'videos' : 'thumbnails');
 
-      const downloadUrlPromise = new Promise<string>((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-            setUploadProgress(progress);
-          },
-          (error) => {
-            console.error('Firebase upload error:', error);
-            reject(error);
-          },
-          async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(url);
-          }
-        );
-      });
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable && isVideo) {
+              const progress = Math.round((e.loaded / e.total) * 100);
+              setUploadProgress(progress);
+            }
+          });
 
-      // Wait for both tasks to complete
-      const [thumbnailUrl, publicUrl] = await Promise.all([
-        thumbnailPromise,
-        downloadUrlPromise
-      ]);
+          xhr.onreadystatechange = () => {
+            if (xhr.readyState === 4) {
+              if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                resolve(response.secure_url);
+              } else {
+                const error = JSON.parse(xhr.responseText);
+                reject(new Error(error.error?.message || 'Upload failed'));
+              }
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Network error during upload'));
+          xhr.open('POST', url, true);
+          xhr.send(formData);
+        });
+      };
+
+      console.log('UploadFlow: Generating thumbnail...');
+      let thumbnailUrl = '';
+      try {
+        const thumbnailBlob = await generateVideoThumbnail(videoFile);
+        thumbnailUrl = await uploadToCloudinary(thumbnailBlob, false);
+        console.log('UploadFlow: Thumbnail uploaded:', thumbnailUrl);
+      } catch (thumbErr) {
+        console.error('Thumbnail upload skipped:', thumbErr);
+      }
+
+      console.log('UploadFlow: Uploading video...');
+      const videoUrl = await uploadToCloudinary(videoFile, true);
+      console.log('UploadFlow: Video uploaded:', videoUrl);
 
       setUploadProgress(99);
 
@@ -371,7 +378,7 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
         user_id: user.id,
         title: videoTitle,
         caption: videoDescription,
-        video_url: publicUrl,
+        video_url: videoUrl,
         thumbnail_url: thumbnailUrl,
         hashtags: hashtagsArray,
         likes: 0,
@@ -396,6 +403,7 @@ const UploadSettings: React.FC<UploadSettingsProps> = ({
       
       setUploadProgress(100);
       showToast('success', 'Video posted successfully!');
+      _uploadCompleted = true;
       resetUpload();
       navigate('/app');
     } catch (err: any) {
@@ -503,4 +511,4 @@ const UploadFlow: React.FC = () => {
   );
 };
 
-export default UploadFlow;
+export default UploadFlow;

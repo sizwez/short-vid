@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Share2, Bookmark, Music2, Volume2, VolumeX } from 'lucide-react';
 
 interface VideoUser {
@@ -52,7 +53,42 @@ const VideoItem: React.FC<VideoItemProps> = ({
   isSaved,
   onVideoPlay
 }) => {
+  const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [showHeart, setShowHeart] = useState(false);
+  const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
+  const lastTapRef = useRef<number>(0);
+
+  const handleDoubleTap = useCallback((e: React.MouseEvent<HTMLVideoElement>) => {
+    const now = Date.now();
+    const timeDiff = now - lastTapRef.current;
+
+    if (timeDiff < 300 && timeDiff > 0) {
+      // Double tap detected - like the video
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      setHeartPosition({ x, y });
+      setShowHeart(true);
+
+      if (!isLiked) {
+        onLike(video.id);
+      }
+
+      setTimeout(() => setShowHeart(false), 1000);
+      lastTapRef.current = 0;
+    } else {
+      // Single tap - wait to see if second tap comes
+      lastTapRef.current = now;
+      setTimeout(() => {
+        if (lastTapRef.current !== 0 && Date.now() - lastTapRef.current >= 290) {
+          onToggleMute();
+          lastTapRef.current = 0;
+        }
+      }, 300);
+    }
+  }, [isLiked, onLike, onToggleMute, video.id]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -82,30 +118,49 @@ const VideoItem: React.FC<VideoItemProps> = ({
         playsInline
         muted={isMuted}
         poster={video.thumbnail_url}
-        onClick={onToggleMute}
+        onClick={handleDoubleTap}
       />
 
-      {/* Mute Overlay */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Double-tap Heart Animation */}
+      <AnimatePresence>
+        {showHeart && (
+          <motion.div
+            initial={{ opacity: 1, scale: 0 }}
+            animate={{ opacity: 1, scale: 1, y: -20 }}
+            exit={{ opacity: 0, scale: 1.5, y: -60 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="absolute pointer-events-none z-30"
+            style={{ left: heartPosition.x - 40, top: heartPosition.y - 40 }}
+          >
+            <Heart className="w-20 h-20 text-red-500 fill-red-500 drop-shadow-lg" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mute/Unmute Indicator */}
+      <AnimatePresence>
         <motion.div
-           initial={{ opacity: 0, scale: 0.5 }}
-           animate={{ opacity: isActive ? 0 : 0, scale: isActive ? 1 : 0.5 }}
-           className="bg-black/40 p-4 rounded-full backdrop-blur-sm"
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: isMuted ? 0.8 : 0, scale: isMuted ? 1 : 0.5 }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"
         >
-          {isMuted ? <VolumeX className="w-8 h-8 text-white" /> : <Volume2 className="w-8 h-8 text-white" />}
+          <div className="bg-black/40 p-4 rounded-full backdrop-blur-sm">
+            {isMuted ? <VolumeX className="w-8 h-8 text-white" /> : <Volume2 className="w-8 h-8 text-white" />}
+          </div>
         </motion.div>
-      </div>
+      </AnimatePresence>
 
       {/* Side Action Buttons */}
       <div className="absolute bottom-28 right-4 flex flex-col items-center gap-6">
-        <motion.div 
-          className="relative group"
+        <motion.div
+          className="relative group cursor-pointer"
           whileTap={{ scale: 0.8 }}
+          onClick={() => video.users?.id && navigate(`/app/profile/${video.users.id}`)}
         >
           <div className="w-12 h-12 rounded-full p-0.5 bg-gradient-to-br from-pink-500 to-purple-600 shadow-lg">
-            <img 
-              src={video.users?.avatar_url || `https://ui-avatars.com/api/?name=${video.users?.username || 'user'}&background=random`} 
-              alt="" 
+            <img
+              src={video.users?.avatar_url || `https://ui-avatars.com/api/?name=${video.users?.username || 'user'}&background=random`}
+              alt=""
               className="w-full h-full rounded-full border-2 border-black object-cover"
             />
           </div>
@@ -136,14 +191,17 @@ const VideoItem: React.FC<VideoItemProps> = ({
       {/* Video Info Overlay */}
       <div className="absolute bottom-28 left-4 right-24 text-white pointer-events-none">
         <motion.div
-           initial={{ x: -20, opacity: 0 }}
-           animate={{ x: 0, opacity: 1 }}
-           className="pointer-events-auto"
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          className="pointer-events-auto"
         >
-          <h4 className="font-bold text-lg flex items-center gap-2">
+          <h4
+            className="font-bold text-lg flex items-center gap-2 cursor-pointer"
+            onClick={() => video.users?.id && navigate(`/app/profile/${video.users.id}`)}
+          >
             @{video.users?.username || 'user'}
             {video.users?.verified_badge && (
-               <span className="bg-blue-500 rounded-full p-0.5"><div className="w-2 h-2 bg-white rounded-full" /></span>
+              <span className="bg-blue-500 rounded-full p-0.5"><div className="w-2 h-2 bg-white rounded-full" /></span>
             )}
           </h4>
           <p className="mt-2 text-sm leading-relaxed line-clamp-2 text-gray-100">
