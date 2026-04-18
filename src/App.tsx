@@ -11,6 +11,7 @@ import './index.css';
 const OnboardingFlow = React.lazy(() => import('./components/OnboardingFlow'));
 const FeatureCarousel = React.lazy(() => import('./components/FeatureCarousel'));
 const MainApp = React.lazy(() => import('./components/MainApp'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
 
 // A global fallback spinner class
 const FallbackSpinner = () => (
@@ -67,6 +68,13 @@ const AppContent = () => {
             <Route path="/features" element={<FeatureCarousel />} />
             <Route path="/onboarding/*" element={<OnboardingFlow />} />
             <Route path="/app/*" element={<MainApp />} />
+            <Route path="/admin" element={
+              isAuthenticated && useApp().user?.isAdmin ? (
+                <AdminDashboard />
+              ) : (
+                <Navigate to="/app" replace />
+              )
+            } />
           </Routes>
         </Suspense>
       )}

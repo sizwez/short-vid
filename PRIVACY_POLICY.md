@@ -15,6 +15,7 @@ Welcome to Mzansi Videos ("we", "us", "our"). This Privacy Policy explains how w
 ### 2.1 Personal Information You Provide
 - **Profile Information**: Username, display name, bio, and avatar.
 - **Contact Information**: Email address and phone number (optional).
+- **Identity & Security**: Encrypted mnemonic recovery words (stored locally and hashed in our records) and device identifiers for PIN/Biometric linking.
 - **Content**: Videos you upload, comments you post, and messages you send.
 - **Payment Information**: Payment method details processed securely via Paystack (we do not store card details).
 

@@ -8,6 +8,7 @@ export interface User {
   followers: number;
   following: number;
   isCreator: boolean;
+  isAdmin: boolean;
   subscription: 'free' | 'premium' | 'creator-boost';
   earnings: number;
   language: string;

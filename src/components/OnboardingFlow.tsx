@@ -8,6 +8,8 @@ import { signIn, signUp, resendConfirmationEmail, resetPassword, updatePassword,
 import { trackSignup } from '../lib/analytics';
 import { captureError } from '../lib/monitoring';
 import PremiumBackground from './PremiumBackground';
+import { generateMnemonic, saveMnemonic } from '../services/mnemonicService';
+import { Shield, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 
 const languages = [
   { code: 'en', name: 'English', flag: '🇿🇦' },
@@ -86,6 +88,111 @@ const LanguageSelection: React.FC = () => {
         </div>
       </div>
     </PremiumBackground>
+  );
+};
+
+const POPIAConsent: React.FC<{ onAccept: () => void }> = ({ onAccept }) => {
+  return (
+    <div className="w-full h-screen fixed inset-0 z-[100] bg-black">
+      <PremiumBackground>
+        <div className="min-h-screen text-white p-6 flex flex-col items-center justify-center">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md w-full bg-gray-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl"
+          >
+            <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+              <Shield className="w-8 h-8 text-blue-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-center mb-4">POPIA Protection</h1>
+            <p className="text-gray-300 text-center mb-6 leading-relaxed">
+              In compliance with the **Protection of Personal Information Act (POPIA)**, we ensure your data is stored securely and used only for your experience on Mzansi Videos.
+            </p>
+            <div className="space-y-4 mb-8">
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
+                <p className="text-sm text-gray-400">Your data is stored on encrypted servers.</p>
+              </div>
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
+                <p className="text-sm text-gray-400">We never sell your phone number or email.</p>
+              </div>
+            </div>
+            <button
+              onClick={onAccept}
+              className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:bg-gray-200 transition-all active:scale-[0.98]"
+            >
+              I Accept & Continue
+            </button>
+            <p className="text-center text-xs text-gray-500 mt-4">
+              By continuing, you agree to our <span className="text-orange-500">Privacy Policy</span>
+            </p>
+          </motion.div>
+        </div>
+      </PremiumBackground>
+    </div>
+  );
+};
+
+const MnemonicSetup: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const [words, setWords] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    generateMnemonic().then(w => {
+      setWords(w);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleSave = async () => {
+    await saveMnemonic(words);
+    onComplete();
+  };
+
+  return (
+    <div className="text-center w-full">
+      <div className="w-20 h-20 bg-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-orange-500/30">
+        <Lock className="w-10 h-10 text-orange-500" />
+      </div>
+      <h2 className="text-3xl font-bold mb-4">Secure Your Identity</h2>
+      <p className="text-gray-400 mb-8 leading-relaxed">
+        Save these 3 recovery words. They are the **ONLY** way to recover your account if you lose your phone.
+      </p>
+      
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 mb-10">
+          {words.map((word, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="bg-white/5 border border-white/10 p-5 rounded-2xl text-2xl font-mono tracking-widest text-orange-500 uppercase flex items-center shadow-inner"
+            >
+              <span className="text-white/20 mr-4 text-base italic">#{i + 1}</span>
+              {word}
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={handleSave}
+        className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-5 rounded-2xl font-bold text-xl hover:opacity-90 transition-all shadow-xl shadow-orange-500/20 active:scale-[0.98]"
+      >
+        I've Saved Them
+      </button>
+      
+      <div className="mt-6 flex items-center justify-center space-x-2 text-orange-500/50">
+        <AlertCircle className="w-4 h-4" />
+        <span className="text-xs uppercase tracking-widest font-bold">Screenshot this screen</span>
+      </div>
+    </div>
   );
 };
 
@@ -621,7 +728,7 @@ const AuthScreen: React.FC = () => {
   const { showToast } = useToast();
   const { language } = useApp();
   const isResetMode = searchParams.get('reset') === 'true';
-  const [mode, setMode] = useState<'welcome' | 'login' | 'signup' | 'forgot' | 'reset' | 'verify'>(isResetMode ? 'reset' : 'welcome');
+  const [mode, setMode] = useState<'popia' | 'welcome' | 'login' | 'signup' | 'forgot' | 'reset' | 'verify' | 'mnemonic'>(isResetMode ? 'reset' : 'popia');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [resendVisible, setResendVisible] = useState(false);
@@ -703,8 +810,8 @@ const AuthScreen: React.FC = () => {
       });
 
       if (authData?.session) {
-        showToast('success', 'Account created! Welcome to Mzansi Videos!');
-        navigate('/app');
+        showToast('success', 'Account created! Let\'s secure your identity.');
+        setMode('mnemonic');
       } else {
         showToast('success', 'Verification email sent! Check your inbox.');
         setMode('verify');
@@ -774,7 +881,9 @@ const AuthScreen: React.FC = () => {
       <div className="min-h-screen text-white p-6 overflow-x-hidden">
         <div className="max-w-md mx-auto min-h-[600px] flex flex-col items-center justify-center">
           <AnimatePresence mode="wait">
+            {mode === 'popia' && <POPIAConsent key="popia" onAccept={() => setMode('welcome')} />}
             {mode === 'welcome' && <WelcomeScreen key="welcome" onModeChange={setMode} />}
+            {mode === 'mnemonic' && <MnemonicSetup key="mnemonic" onComplete={() => navigate('/app')} />}
             {mode === 'login' && (
               <LoginScreen key="login"
                 formData={formData}

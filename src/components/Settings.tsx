@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, User, Shield, Bell, Globe, Wifi, HelpCircle, LogOut, ChevronRight, Key, Wallet, Trash2 } from 'lucide-react';
@@ -8,6 +8,95 @@ import { signOut, updateUserProfile } from '../services/authService';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 import { initializeFCMForUser, disableFCMForUser } from '../lib/fcmService';
+import { verifyPin } from '../services/pinService';
+
+const RecoveryWordsSettings: React.FC = () => {
+    const navigate = useNavigate();
+    const { showToast } = useToast();
+    const [pin, setPin] = useState('');
+    const [verified, setVerified] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleVerify = async () => {
+        setIsLoading(true);
+        const res = await verifyPin(pin);
+        if (res.success) {
+            setVerified(true);
+        } else {
+            showToast('error', 'Invalid PIN');
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="min-h-screen bg-black text-white p-6">
+            <div className="max-w-md mx-auto">
+                <header className="flex items-center justify-between mb-10 pt-4">
+                    <button onClick={() => navigate('/settings')} className="p-3 bg-white/5 rounded-2xl border border-white/10">
+                        <ArrowLeft className="w-6 h-6" />
+                    </button>
+                    <h1 className="text-xl font-bold">Recovery Words</h1>
+                    <div className="w-12"></div>
+                </header>
+
+                {!verified ? (
+                    <div className="text-center py-10">
+                        <div className="w-20 h-20 bg-orange-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-orange-500/30">
+                           <Shield className="w-10 h-10 text-orange-500" />
+                        </div>
+                        <h2 className="text-2xl font-bold mb-4">Identity Verification</h2>
+                        <p className="text-gray-400 mb-10">Enter your 4-6 digit Security PIN to view recovery options.</p>
+                        
+                        <div className="max-w-[240px] mx-auto mb-10">
+                            <input 
+                                type="password"
+                                value={pin}
+                                onChange={(e) => setPin(e.target.value)}
+                                maxLength={6}
+                                placeholder="••••••"
+                                className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-4xl tracking-[0.4em] w-full focus:ring-2 focus:ring-orange-500 outline-none placeholder:text-white/10"
+                            />
+                        </div>
+
+                        <button 
+                            onClick={handleVerify}
+                            disabled={isLoading || pin.length < 4}
+                            className="w-full bg-gradient-to-r from-orange-500 to-red-500 py-5 rounded-2xl font-bold text-lg shadow-xl shadow-orange-500/20 disabled:opacity-30 transition-all active:scale-[0.98]"
+                        >
+                            {isLoading ? 'Verifying...' : 'Unlock Recovery Words'}
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="p-8 bg-orange-500/10 border border-orange-500/20 rounded-[40px] text-center backdrop-blur-xl"
+                        >
+                            <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-orange-500/20">
+                                <Shield className="w-8 h-8 text-white" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-4">Encryption Logic</h3>
+                            <p className="text-gray-300 leading-relaxed mb-6">
+                                Your recovery words are stored as a **one-way hash** on this device. For your safety, we cannot display the plain words after they are initially shown.
+                            </p>
+                            <div className="p-5 bg-white/5 border border-white/5 rounded-2xl text-left">
+                                <p className="text-xs uppercase tracking-widest font-black text-orange-500 mb-2">How to Recover?</p>
+                                <p className="text-sm text-gray-400">If you lose your device, you will be prompted to enter your 3 words on the new device during login.</p>
+                            </div>
+                        </motion.div>
+                        
+                        <div className="p-6 bg-red-500/5 border border-red-500/10 rounded-3xl">
+                            <p className="text-sm text-center text-red-400/80">
+                                **WARNING**: If you have lost your recovery words and your device, your account cannot be recovered.
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const SettingsMain: React.FC = () => {
   const navigate = useNavigate();
@@ -88,6 +177,12 @@ const SettingsMain: React.FC = () => {
           label: 'Payout Method',
           onPress: () => navigate('/app/payment'),
           badge: null
+        },
+        {
+          icon: <Shield className="w-5 h-5 text-orange-500" />,
+          label: 'Recovery Words',
+          onPress: () => navigate('/settings/recovery'),
+          badge: 'Secure'
         }
       ]
     },
@@ -534,6 +629,7 @@ const Settings: React.FC = () => {
       <Route path="/privacy" element={<PrivacySettings />} />
       <Route path="/notifications" element={<NotificationSettings />} />
       <Route path="/delete-account" element={<DeleteAccountSettings />} />
+      <Route path="/recovery" element={<RecoveryWordsSettings />} />
     </Routes>
   );
 };

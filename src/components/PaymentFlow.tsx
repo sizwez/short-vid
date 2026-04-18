@@ -1,12 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, CreditCard, Smartphone, DollarSign, Check, Loader2, X, Wallet, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowLeft, CreditCard, Smartphone, DollarSign, Check, Loader2, X, Wallet, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
 import { useApp } from '../hooks/useApp';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 import { trackPayment } from '../lib/analytics';
 import { captureError } from '../lib/monitoring';
+
+const ModeBadge: React.FC = () => {
+    const isTestMode = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY?.startsWith('pk_test');
+    
+    if (!isTestMode) return null;
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start space-x-3"
+        >
+            <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+            <div>
+                <p className="text-amber-500 font-bold text-sm uppercase tracking-wider">Test Mode Active</p>
+                <p className="text-white/40 text-xs">You are using Paystack Test Keys. Real payments will not be processed. Update to Live keys in .env for production.</p>
+            </div>
+        </motion.div>
+    );
+};
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -24,6 +44,7 @@ const itemVariants = {
 const PaymentMethod: React.FC = () => {
     const navigate = useNavigate();
     const [selectedMethod, setSelectedMethod] = useState<'card' | 'mobile' | 'bank'>('card');
+    // ... rest
 
     const paymentMethods = [
         {
@@ -70,6 +91,7 @@ const PaymentMethod: React.FC = () => {
                 </header>
 
                 <motion.div variants={itemVariants} className="mb-8">
+                    <ModeBadge />
                     <p className="text-white/60 text-sm font-medium uppercase tracking-widest mb-2">Secure Checkout</p>
                     <h2 className="text-3xl font-extrabold mb-6">Choose method</h2>
                 </motion.div>
@@ -201,6 +223,8 @@ const PaymentDetails: React.FC = () => {
                     <motion.h1 variants={itemVariants} className="text-2xl font-bold tracking-tight">Payment</motion.h1>
                     <div className="w-12" />
                 </header>
+
+                <ModeBadge />
 
                 <motion.div variants={itemVariants} className="glass rounded-[32px] p-8 mb-8 border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent">
                     <label className="block text-white/50 text-sm font-bold uppercase tracking-widest mb-4">Enter Amount</label>

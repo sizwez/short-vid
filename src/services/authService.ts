@@ -10,6 +10,7 @@ export interface UserProfile {
   followers_count: number;
   following_count: number;
   is_creator: boolean;
+  is_admin: boolean;
   verified_badge: boolean;
   subscription: 'free' | 'premium' | 'creator-boost';
   earnings: number;
@@ -255,6 +256,7 @@ export const handleOAuthCallback = async () => {
       email: user.email,
       bio: 'New to Mzansi Videos',
       avatar_url: user.user_metadata?.avatar_url || null,
+      is_admin: false, // Default for new users
     });
   }
   return true;

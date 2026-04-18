@@ -132,6 +132,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       followers: profile.followers_count,
       following: profile.following_count,
       isCreator: profile.is_creator,
+      isAdmin: profile.is_admin,
       subscription: profile.subscription,
       earnings: profile.earnings,
       language: profile.language,
@@ -160,6 +161,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         bio: 'New to Mzansi Videos',
         email: authUser.email,
         language: 'en',
+        is_admin: false,
       },
       { onConflict: 'id' }
     );
@@ -180,6 +182,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     followers: 0,
     following: 0,
     isCreator: false,
+    isAdmin: false,
     subscription: 'free',
     earnings: 0,
     language: 'en',
@@ -213,6 +216,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           followers: profile.followers_count || 0,
           following: profile.following_count || 0,
           isCreator: profile.is_creator || false,
+          isAdmin: profile.is_admin || false,
           subscription: profile.subscription || 'free',
           earnings: profile.earnings || 0,
           language: profile.language || 'en',
